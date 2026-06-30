@@ -1,0 +1,614 @@
+// Prisma Schema — Xhelal Shatri Clinic
+// Databaza: PostgreSQL 16
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  ADMIN
+  MANAGER
+  PHYSIOTHERAPIST
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum PatientStatus {
+  IN_TREATMENT
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIALLY_PAID
+  UNPAID
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+}
+
+enum PaymentType {
+  FULL_TREATMENT
+  PARTIAL
+  PER_SESSION
+  DEBT_PAYMENT
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum SymptomType {
+  NECK_PAIN
+  LOWER_BACK_PAIN
+  SHOULDER_PAIN
+  KNEE_PAIN
+  LEG_NUMBNESS
+  ARM_NUMBNESS
+  LIMITED_MOBILITY
+  MUSCLE_WEAKNESS
+}
+
+enum NotificationType {
+  NEW_PATIENT
+  SESSION_COMPLETED
+  TREATMENT_REGISTERED
+  PAYMENT_RECEIVED
+  SESSION_SCHEDULED
+  PLAN_CREATED
+  PATIENT_ACTIVE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  VIEW
+  EXPORT
+}
+
+// ==========================================
+// USER
+// ==========================================
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  phone        String?
+  role         Role      @default(PHYSIOTHERAPIST)
+  isActive     Boolean   @default(true) @map("is_active")
+  avatarUrl    String?   @map("avatar_url")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  userBranches           UserBranch[]
+  managedBranches        Branch[]           @relation("BranchManager")
+  sessions               Session[]
+  treatments             Treatment[]
+  notifications          Notification[]     @relation("NotificationUser")
+  sentNotifications      Notification[]     @relation("NotificationSender")
+  auditLogs              AuditLog[]
+  refreshTokens          RefreshToken[]
+  createdTreatmentPlans  TreatmentPlan[]    @relation("PlanCreatedByUser")
+  assignedTreatmentPlans TreatmentPlan[]    @relation("PlanAssignedPhysiotherapist")
+  completedSessions      Session[]          @relation("SessionCompletedBy")
+  priceChangedSessions   Session[]          @relation("SessionPriceChangedBy")
+  createdPayments        Payment[]
+  clinicSettingsUpdates  ClinicSettings[]
+  pushSubscriptions      PushSubscription[]
+
+  @@index([username])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+// ==========================================
+// BRANCH
+// ==========================================
+
+model Branch {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  city         String
+  address      String?
+  phone        String?
+  email        String?
+  managerId    String?   @map("manager_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  // Single per-session price for this branch — replaces the old
+  // firstSessionPrice/regularSessionPrice split. An individual session or
+  // plan can still override this on its own (Session.amount /
+  // TreatmentPlan.sessionFee), but the branch only ever carries one figure.
+  sessionPrice Decimal   @default(20) @map("session_price") @db.Decimal(10, 2)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  manager        User?           @relation("BranchManager", fields: [managerId], references: [id])
+  userBranches   UserBranch[]
+  patients       Patient[]
+  sessions       Session[]
+  payments       Payment[]
+  treatmentPlans TreatmentPlan[]
+
+  @@index([managerId])
+  @@index([deletedAt])
+  @@map("branches")
+}
+
+// ==========================================
+// USER-BRANCH (Assignment)
+// ==========================================
+
+model UserBranch {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  branchId  String   @map("branch_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId])
+  @@index([userId])
+  @@index([branchId])
+  @@map("user_branches")
+}
+
+// ==========================================
+// PATIENT
+// ==========================================
+
+model Patient {
+  id                      String         @id @default(uuid())
+  firstName               String         @map("first_name")
+  lastName                String         @map("last_name")
+  phone                   String
+  address                 String?
+  birthDate               DateTime?      @map("birth_date")
+  gender                  Gender?
+  notes                   String?
+  branchId                String         @map("branch_id")
+  isActive                Boolean        @default(true) @map("is_active")
+  // Clinical status — only ever IN_TREATMENT or COMPLETED. Null means
+  // "just registered, no treatment plan yet" — no badge shown in the UI.
+  status                  PatientStatus?
+  // Whether the patient is physically present at the clinic right now —
+  // a manager-controlled front-desk tick, not a clinical status. Drives
+  // whether a physiotherapist can pick this patient for a new session.
+  // Auto-expires after ClinicSettings.activeInClinicAutoExpireHours.
+  activeInClinic          Boolean        @default(false) @map("active_in_clinic")
+  activeInClinicSince     DateTime?      @map("active_in_clinic_since")
+  activeInClinicExpiresAt DateTime?      @map("active_in_clinic_expires_at")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+  deletedAt               DateTime?      @map("deleted_at")
+
+  // Relations
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  treatmentPlans TreatmentPlan[]
+  sessions       Session[]
+  treatments     Treatment[]
+  payments       Payment[]
+
+  @@index([branchId])
+  @@index([phone])
+  @@index([firstName, lastName])
+  @@index([deletedAt])
+  @@index([status])
+  @@index([activeInClinic])
+  @@index([activeInClinicExpiresAt])
+  @@index([createdAt])
+  @@map("patients")
+}
+
+// ==========================================
+// CLINIC SETTINGS (singleton-style config)
+// ==========================================
+
+model ClinicSettings {
+  id                            String   @id @default(uuid())
+  // How many hours after being marked "active in clinic" a patient
+  // automatically reverts to inactive — set by ADMIN only.
+  activeInClinicAutoExpireHours Int      @default(3) @map("active_in_clinic_auto_expire_hours")
+  // Clinic-wide bonus paid per completed trajtim/seancë — configured only
+  // from Reports → "Bonuset" (never per-branch). 0 means no bonus configured.
+  bonusPerCompletedSession      Decimal  @default(0) @map("bonus_per_completed_session") @db.Decimal(10, 2)
+  updatedByUserId               String?  @map("updated_by_user_id")
+  createdAt                     DateTime @default(now()) @map("created_at")
+  updatedAt                     DateTime @updatedAt @map("updated_at")
+
+  updatedByUser User? @relation(fields: [updatedByUserId], references: [id])
+
+  @@map("clinic_settings")
+}
+
+// ==========================================
+// TREATMENT TYPE (admin-managed, replaces the old hardcoded enum)
+// ==========================================
+
+model TreatmentType {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("treatment_types")
+}
+
+// ==========================================
+// COMPLAINT (admin-managed "Ankesat kryesore")
+// ==========================================
+
+model Complaint {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Admin-managed many-to-many mapping to SuggestedCondition — what
+  // "Kontrollë e re" sends to POST /suggestions/from-complaints once the
+  // user picks "Ankesat kryesore" and clicks "Merr sugjerime".
+  suggestedConditionLinks ComplaintSuggestedCondition[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("complaints")
+}
+
+// ==========================================
+// SUGGESTED CONDITION (admin-managed "Gjendjet e sugjeruara")
+// ==========================================
+
+model SuggestedCondition {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  complaintLinks ComplaintSuggestedCondition[]
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("suggested_conditions")
+}
+
+// Explicit many-to-many join — a Complaint can suggest many
+// SuggestedConditions and a SuggestedCondition can be suggested by many
+// Complaints (e.g. "Muscle strain" applies to both neck and back pain).
+model ComplaintSuggestedCondition {
+  id                   String   @id @default(uuid())
+  complaintId          String   @map("complaint_id")
+  suggestedConditionId String   @map("suggested_condition_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  complaint          Complaint          @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  suggestedCondition SuggestedCondition @relation(fields: [suggestedConditionId], references: [id], onDelete: Cascade)
+
+  @@unique([complaintId, suggestedConditionId])
+  @@index([complaintId])
+  @@index([suggestedConditionId])
+  @@map("complaint_suggested_conditions")
+}
+
+// ==========================================
+// TREATMENT PLAN
+// ==========================================
+
+model TreatmentPlan {
+  id                        String        @id @default(uuid())
+  patientId                 String        @map("patient_id")
+  diagnosis                 String?
+  // Denormalized snapshot of selected Complaint names ("Ankesat kryesore")
+  // and whichever of their suggested diagnoses the user checked — kept as
+  // plain strings (not relations) for the same reason treatmentTypes is:
+  // editing/deactivating a Complaint later must never rewrite history.
+  complaints                String[]      @map("complaints")
+  selectedDiagnoses         String[]      @map("selected_diagnoses")
+  // Stored as plain names (not a relation) — denormalized snapshot of
+  // whichever TreatmentType.name values were active when this plan was
+  // created, so renaming/deactivating a type later never rewrites history.
+  treatmentTypes            String[]      @map("treatment_types")
+  totalSessions             Int           @map("total_sessions")
+  completedSessions         Int           @default(0) @map("completed_sessions")
+  // Single per-session price — replaces the old firstSessionFee/sessionFee
+  // split. Defaults from the patient's branch at creation time; the clinic
+  // can still override it per-plan.
+  sessionFee                Decimal       @default(20) @map("session_fee") @db.Decimal(10, 2)
+  totalAmount               Decimal       @map("total_amount") @db.Decimal(10, 2)
+  amountPaid                Decimal       @default(0) @map("amount_paid") @db.Decimal(10, 2)
+  paymentStatus             PaymentStatus @default(UNPAID) @map("payment_status")
+  notes                     String?
+  isActive                  Boolean       @default(true) @map("is_active")
+  startDate                 DateTime?     @map("start_date")
+  endDate                   DateTime?     @map("end_date")
+  branchId                  String?       @map("branch_id")
+  createdByUserId           String?       @map("created_by_user_id")
+  assignedPhysiotherapistId String?       @map("assigned_physiotherapist_id")
+  createdAt                 DateTime      @default(now()) @map("created_at")
+  updatedAt                 DateTime      @updatedAt @map("updated_at")
+  deletedAt                 DateTime?     @map("deleted_at")
+
+  // Relations
+  patient                 Patient     @relation(fields: [patientId], references: [id])
+  branch                  Branch?     @relation(fields: [branchId], references: [id])
+  sessions                Session[]
+  treatments              Treatment[]
+  payments                Payment[]
+  createdByUser           User?       @relation("PlanCreatedByUser", fields: [createdByUserId], references: [id])
+  assignedPhysiotherapist User?       @relation("PlanAssignedPhysiotherapist", fields: [assignedPhysiotherapistId], references: [id])
+
+  @@index([patientId])
+  @@index([branchId])
+  @@index([paymentStatus])
+  @@index([deletedAt])
+  @@index([assignedPhysiotherapistId])
+  @@index([createdAt])
+  @@map("treatment_plans")
+}
+
+// ==========================================
+// SESSION
+// ==========================================
+
+model Session {
+  id                   String        @id @default(uuid())
+  patientId            String        @map("patient_id")
+  branchId             String        @map("branch_id")
+  physiotherapistId    String?       @map("physiotherapist_id")
+  treatmentPlanId      String?       @map("treatment_plan_id")
+  sessionNumber        Int?          @map("session_number")
+  scheduledAt          DateTime?     @map("scheduled_at")
+  completedAt          DateTime?     @map("completed_at")
+  duration             Int? // minutes
+  status               SessionStatus @default(SCHEDULED)
+  painLevel            Int?          @map("pain_level") // 1-10
+  notes                String?
+  recommendations      String?
+  // Denormalized treatment-type names (same pattern as TreatmentPlan.treatmentTypes)
+  // administered during this specific session — not necessarily identical to
+  // the parent plan's full list, since a physio may only do a subset on a
+  // given visit.
+  treatmentTypes       String[]      @map("treatment_types")
+  amount               Decimal?      @db.Decimal(10, 2)
+  isPaid               Boolean       @default(false) @map("is_paid")
+  completedByUserId    String?       @map("completed_by_user_id")
+  priceOverrideReason  String?       @map("price_override_reason")
+  priceChangedByUserId String?       @map("price_changed_by_user_id")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+  deletedAt            DateTime?     @map("deleted_at")
+
+  // Relations
+  patient            Patient        @relation(fields: [patientId], references: [id])
+  branch             Branch         @relation(fields: [branchId], references: [id])
+  physiotherapist    User?          @relation(fields: [physiotherapistId], references: [id])
+  completedByUser    User?          @relation("SessionCompletedBy", fields: [completedByUserId], references: [id])
+  priceChangedByUser User?          @relation("SessionPriceChangedBy", fields: [priceChangedByUserId], references: [id])
+  treatmentPlan      TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id])
+  treatments         Treatment[]
+  payment            Payment?       @relation(fields: [paymentId], references: [id])
+  paymentId          String?        @map("payment_id")
+
+  @@index([patientId])
+  @@index([branchId])
+  @@index([physiotherapistId])
+  @@index([treatmentPlanId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([completedByUserId])
+  @@index([createdAt])
+  @@index([paymentId])
+  @@map("sessions")
+}
+
+// ==========================================
+// TREATMENT
+// ==========================================
+
+model Treatment {
+  id                  String        @id @default(uuid())
+  patientId           String        @map("patient_id")
+  sessionId           String?       @map("session_id")
+  treatmentPlanId     String?       @map("treatment_plan_id")
+  physiotherapistId   String        @map("physiotherapist_id")
+  treatmentTypes      String[]
+  symptoms            SymptomType[]
+  suggestedConditions String[]      @map("suggested_conditions")
+  painLevel           Int?          @map("pain_level") // 1-10
+  duration            Int? // minutes
+  notes               String?
+  recommendations     String?
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+  deletedAt           DateTime?     @map("deleted_at")
+
+  // Relations
+  patient         Patient        @relation(fields: [patientId], references: [id])
+  session         Session?       @relation(fields: [sessionId], references: [id])
+  treatmentPlan   TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id])
+  physiotherapist User           @relation(fields: [physiotherapistId], references: [id])
+
+  @@index([patientId])
+  @@index([sessionId])
+  @@index([physiotherapistId])
+  @@index([deletedAt])
+  @@map("treatments")
+}
+
+// ==========================================
+// PAYMENT
+// ==========================================
+
+model Payment {
+  id              String        @id @default(uuid())
+  patientId       String        @map("patient_id")
+  branchId        String        @map("branch_id")
+  treatmentPlanId String?       @map("treatment_plan_id")
+  invoiceNumber   String        @unique @map("invoice_number")
+  amount          Decimal       @db.Decimal(10, 2)
+  paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
+  paymentType     PaymentType?  @map("payment_type")
+  status          PaymentStatus @default(UNPAID)
+  paidAt          DateTime?     @map("paid_at")
+  notes           String?
+  createdByUserId String?       @map("created_by_user_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  // Relations
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  treatmentPlan TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id])
+  createdByUser User?          @relation(fields: [createdByUserId], references: [id])
+  sessions      Session[]
+
+  @@index([patientId])
+  @@index([branchId])
+  @@index([treatmentPlanId])
+  @@index([status])
+  @@index([invoiceNumber])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("payments")
+}
+
+// ==========================================
+// NOTIFICATION
+// ==========================================
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  senderId  String?          @map("sender_id")
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user   User  @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  sender User? @relation("NotificationSender", fields: [senderId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ==========================================
+// AUDIT LOG
+// ==========================================
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  userId    String?     @map("user_id")
+  action    AuditAction
+  entity    String
+  entityId  String?     @map("entity_id")
+  oldData   Json?       @map("old_data")
+  newData   Json?       @map("new_data")
+  ipAddress String?     @map("ip_address")
+  userAgent String?     @map("user_agent")
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ==========================================
+// REFRESH TOKEN
+// ==========================================
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ==========================================
+// PUSH SUBSCRIPTIONS (Web Push API)
+// ==========================================
+
+// One row per device/browser — a user can have multiple active
+// subscriptions (phone, tablet, desktop, etc.). A subscription that
+// the browser invalidates is removed on the next failed send attempt.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  endpoint  String
+  p256dh    String   @map("p256dh")
+  auth      String
+  // Inferred from User-Agent to know which icon set and display tweaks
+  // to apply — but only used for display/filtering, never for security.
+  platform  String? // 'ios', 'android', 'desktop', 'other'
+  userAgent String?  @map("user_agent")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@index([endpoint])
+  @@index([isActive])
+  @@map("push_subscriptions")
+}

@@ -1,0 +1,45 @@
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { DashboardService } from './dashboard.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { Role } from '@prisma/client';
+
+@ApiTags('Paneli')
+@ApiBearerAuth()
+@UseGuards(AuthGuard('jwt'), RolesGuard)
+@Controller('dashboard')
+export class DashboardController {
+  constructor(private readonly dashboardService: DashboardService) {}
+
+  @Get('admin')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Statistikat e Admin-it' })
+  getAdminStats(@Query('branchId') branchId?: string) {
+    return this.dashboardService.getAdminStats(branchId);
+  }
+
+  @Get('manager')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Statistikat e Menaxherit' })
+  getManagerStats(@CurrentUser() user: any, @Query('branchId') branchId?: string) {
+    const targetBranchId = branchId || user.managedBranches?.[0]?.id || user.userBranches?.[0]?.branchId;
+    return this.dashboardService.getManagerStats(user.id, targetBranchId);
+  }
+
+  @Get('physiotherapist')
+  @Roles(Role.PHYSIOTHERAPIST)
+  @ApiOperation({ summary: 'Statistikat e Fizioterapistit' })
+  getPhysiotherapistStats(@CurrentUser('id') userId: string) {
+    return this.dashboardService.getPhysiotherapistStats(userId);
+  }
+
+  @Get('revenue-chart')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Grafiku i të ardhurave' })
+  getRevenueChart(@Query('branchId') branchId?: string, @Query('year') year?: number) {
+    return this.dashboardService.getRevenueChart(branchId, year);
+  }
+}

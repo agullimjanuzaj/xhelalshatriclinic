@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:3000/login -o /tmp/login2.html -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(grep -o '\"status\\\\\\\\?\":[0-9]*\\\\|404' /tmp/login2.html)",
+      "PowerShell(Start-Sleep -Seconds 9; try { Invoke-RestMethod -Uri \"http://localhost:4000/api/v1/auth/login\" -Method POST -ContentType \"application/json\" -Body '{\"username\":\"xhelalshatri\",\"password\":\"Admin123\"}' | Out-Null; Write-Host \"Backend OK\" } catch { Write-Host \"Backend not ready: $_\" })",
+      "Bash(rm -f cookies_final.txt)",
+      "Bash(curl -s -c cookies_final.txt http://localhost:3000/api/auth/csrf)",
+      "Bash(curl -s -b cookies_final.txt -D - -o /dev/null \"http://localhost:3000/\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"xhelalshatri\",\"password\":\"Admin123\"}' -o /dev/null -w \"backend login status: %{http_code}\\\\n\")",
+      "Bash(curl -s -o /dev/null -w \"frontend status: %{http_code}\\\\n\" \"http://localhost:3000\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"dritonberisha\",\"password\":\"Menagjer123\"}' -o /tmp/login_mgr.json -w \"manager login status: %{http_code}\\\\n\")",
+      "Bash(echo \"BACKEND_EXIT:$?\")",
+      "Bash(echo \"FRONTEND_EXIT:$?\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"xhelalshatri\",\"password\":\"Admin123\"}' -o /tmp/login_admin2.json -w \"admin login: %{http_code}\\\\n\")",
+      "Bash(curl -s -X POST http://localhost:4000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"artamorina\",\"password\":\"Fizioterapeut123\"}' -o /tmp/login_physio2.json -w \"physio login: %{http_code}\\\\n\")",
+      "Bash(curl -s -o /dev/null -w \"backend: %{http_code}\\\\n\" -X POST http://localhost:4000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"xhelalshatri\",\"password\":\"Admin123\"}')",
+      "Bash(curl -s -o /dev/null -w \"frontend: %{http_code}\\\\n\" \"http://localhost:3000\")",
+      "Bash(node migrate-status.js)",
+      "Bash(rm -rf \"C:\\\\Users\\\\Gentiana\\\\Desktop\\\\Xhelal Shatri Clinic\\\\frontend\\\\src\\\\app\\\\app\\\\patients\\\\[id]\\\\_views\" && echo removed)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Gentiana\\Desktop\\Xhelal Shatri Clinic\\frontend\\src\\app\\app\\patients\\[id]\\_views"
+    ]
+  }
+}
