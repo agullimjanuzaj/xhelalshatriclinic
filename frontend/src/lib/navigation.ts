@@ -28,8 +28,13 @@ export function getNavItemsForRole(role: string): NavItem[] {
   return NAV_ITEMS.filter((i) => i.roles.includes(role as any));
 }
 
-// Subset shown in the mobile bottom nav (limited to ~5 to keep it usable on a phone)
-const MOBILE_LABELS = ['Paneli', 'Pacientët', 'Trajtimet', 'Pagesat', 'Raportet'];
+// Subset shown in the mobile bottom nav (limited to ~5 to keep it usable on a phone).
+// Admin sees Kontrollat (treatment-plans) instead of Pacientët to give quick
+// access to the most-used clinical workflow.
+const MOBILE_LABELS_ADMIN  = ['Paneli', 'Kontrollat', 'Trajtimet', 'Pagesat', 'Raportet'];
+const MOBILE_LABELS_OTHER  = ['Paneli', 'Pacientët', 'Trajtimet', 'Pagesat', 'Raportet'];
+
 export function getMobileNavItemsForRole(role: string): NavItem[] {
-  return getNavItemsForRole(role).filter((i) => MOBILE_LABELS.includes(i.label)).slice(0, 5);
+  const labels = role === 'ADMIN' ? MOBILE_LABELS_ADMIN : MOBILE_LABELS_OTHER;
+  return getNavItemsForRole(role).filter((i) => labels.includes(i.label)).slice(0, 5);
 }

@@ -98,12 +98,12 @@ export function PhysioReportsView() {
               Trajtimet ditore
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
+          <CardContent className="overflow-x-auto">
+            <ResponsiveContainer width="100%" height={180} minWidth={200}>
               <BarChart data={sessionsByDay}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 9 }} />
+                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={25} />
                 <Tooltip />
                 <Bar dataKey="count" fill="#0d9488" radius={[4, 4, 0, 0]} />
               </BarChart>

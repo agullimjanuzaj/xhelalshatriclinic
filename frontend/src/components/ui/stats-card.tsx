@@ -32,10 +32,11 @@ export function StatsCard({ title, value, description, icon: Icon, trend, gradie
       onClick={onClick}
       role={onClick ? 'button' : undefined}
     >
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
+      {/* Mobile: icon above text. sm+: icon to the right. */}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1 min-w-0">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-3xl font-bold text-foreground">{value}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-foreground break-words">{value}</p>
           {description && (
             <p className="text-xs text-muted-foreground">{description}</p>
           )}
@@ -46,8 +47,8 @@ export function StatsCard({ title, value, description, icon: Icon, trend, gradie
             </div>
           )}
         </div>
-        <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg', gradients[gradient])}>
-          <Icon size={22} />
+        <div className={cn('w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0', gradients[gradient])}>
+          <Icon size={20} />
         </div>
       </div>
       {/* Decorative circles */}

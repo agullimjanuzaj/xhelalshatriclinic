@@ -180,7 +180,7 @@ export function PhysioSessionsView() {
                 if (e.target.value) params.set('date', e.target.value); else params.delete('date');
                 router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
               }}
-              className="w-40 pr-8"
+              className="w-36 sm:w-40 pr-8"
             />
             {dateFilter && (
               <button

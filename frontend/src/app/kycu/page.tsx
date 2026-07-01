@@ -187,7 +187,7 @@ export default function LoginPage() {
           </Form>
 
           <p className="text-center text-xs text-muted-foreground">
-            © 2025 Xhelal Shatri Clinic. Të gjitha të drejtat e rezervuara.
+            © 2026 Xhelal Shatri Clinic. Të gjitha të drejtat e rezervuara.
           </p>
         </div>
       </div>

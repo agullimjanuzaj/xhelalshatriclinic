@@ -208,23 +208,26 @@ export function AdminReportsView() {
       )}
 
       <Tabs defaultValue="sessions">
-        <TabsList>
-          <TabsTrigger value="sessions">Trajtimet</TabsTrigger>
-          <TabsTrigger value="revenue">Të ardhurat</TabsTrigger>
-          <TabsTrigger value="outstanding">Balancet</TabsTrigger>
-          <TabsTrigger value="bonuses">Bonuset</TabsTrigger>
-        </TabsList>
+        {/* Scrollable tabs row on mobile */}
+        <div className="overflow-x-auto pb-0.5">
+          <TabsList className="min-w-max">
+            <TabsTrigger value="sessions">Trajtimet</TabsTrigger>
+            <TabsTrigger value="revenue">Të ardhurat</TabsTrigger>
+            <TabsTrigger value="outstanding">Balancet</TabsTrigger>
+            <TabsTrigger value="bonuses">Bonuset</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="sessions" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-sm">Trajtimet sipas degës</CardTitle></CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
+              <CardContent className="overflow-x-auto">
+                <ResponsiveContainer width="100%" height={200} minWidth={200}>
                   <BarChart data={sessionsBranchData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="branchName" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="branchName" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} width={30} />
                     <Tooltip />
                     <Bar dataKey="sessions" fill="#0d9488" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -255,12 +258,12 @@ export function AdminReportsView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader><CardTitle className="text-sm">Të ardhurat mujore</CardTitle></CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={220}>
+              <CardContent className="overflow-x-auto">
+                <ResponsiveContainer width="100%" height={200} minWidth={200}>
                   <BarChart data={revMonthData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}€`} />
+                    <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} width={45} tickFormatter={(v) => `${v}€`} />
                     <Tooltip formatter={(v: any) => formatCurrency(v)} />
                     <Bar dataKey="revenue" fill="#0d9488" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -270,12 +273,12 @@ export function AdminReportsView() {
 
             <Card>
               <CardHeader><CardTitle className="text-sm">Të ardhurat sipas degës</CardTitle></CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={220}>
+              <CardContent className="overflow-x-auto">
+                <ResponsiveContainer width="100%" height={200} minWidth={200}>
                   <BarChart data={revBranchData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="branchName" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}€`} />
+                    <XAxis dataKey="branchName" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} width={45} tickFormatter={(v) => `${v}€`} />
                     <Tooltip formatter={(v: any) => formatCurrency(v)} />
                     <Bar dataKey="revenue" fill="#0891b2" radius={[4, 4, 0, 0]} />
                   </BarChart>

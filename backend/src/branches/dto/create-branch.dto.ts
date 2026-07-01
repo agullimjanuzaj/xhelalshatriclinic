@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -20,11 +20,6 @@ export class CreateBranchDto {
   @IsOptional()
   @IsString()
   phone?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsEmail({}, { message: 'Email-i nuk është i vlefshëm' })
-  email?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -291,7 +291,11 @@ export class PatientsService {
 
   async update(id: string, dto: UpdatePatientDto, user: any) {
     const existing = await this.findOne(id, user);
-    const data: any = { ...dto };
+
+    // Strip fields that are managed via dedicated endpoints or are
+    // auto-computed — passing them through a general update corrupts state.
+    const { activeInClinic, activeInClinicSince, activeInClinicExpiresAt, status, ...safeDto } = dto as any;
+    const data: any = { ...safeDto };
 
     if (user.role === Role.MANAGER) {
       // Manager can never move a patient to a branch outside their own.

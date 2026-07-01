@@ -77,7 +77,11 @@
       "Bash(curl -s -I http://localhost:4000/health)",
       "Bash(ls *.js worker-*.js)",
       "Bash(grep \"worker-\" public/sw.js)",
-      "Bash(node -e \"const fs=require\\('fs'\\);const sw=fs.readFileSync\\('./public/sw.js','utf8'\\);console.log\\(sw.includes\\('importScripts'\\) || sw.includes\\('worker-'\\)\\);console.log\\(sw.slice\\(0,300\\)\\)\")"
+      "Bash(node -e \"const fs=require\\('fs'\\);const sw=fs.readFileSync\\('./public/sw.js','utf8'\\);console.log\\(sw.includes\\('importScripts'\\) || sw.includes\\('worker-'\\)\\);console.log\\(sw.slice\\(0,300\\)\\)\")",
+      "Bash(echo \"BACKEND:$?\")",
+      "Bash(echo \"FRONTEND:$?\")",
+      "Bash(echo \"TSC:$?\")",
+      "Bash(echo \"BACKEND BUILD:$?\")"
     ]
   }
 }

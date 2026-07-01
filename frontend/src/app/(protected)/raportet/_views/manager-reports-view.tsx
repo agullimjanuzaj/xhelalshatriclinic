@@ -180,12 +180,12 @@ export function ManagerReportsView() {
             Të ardhurat mujore
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={220}>
+        <CardContent className="overflow-x-auto">
+          <ResponsiveContainer width="100%" height={200} minWidth={200}>
             <BarChart data={revenueByMonth}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}€`} />
+              <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} width={45} tickFormatter={(v) => `${v}€`} />
               <Tooltip formatter={(v: any) => [`${v}€`, 'Të ardhura']} />
               <Bar dataKey="revenue" fill="#0d9488" radius={[6, 6, 0, 0]} />
             </BarChart>

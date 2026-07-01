@@ -27,7 +27,9 @@ const schema = z.object({
   gender: z.enum(['MALE', 'FEMALE']).optional(),
   notes: z.string().optional(),
   branchId: z.string().min(1, 'Dega është e detyrueshme'),
-  activeInClinic: z.boolean(),
+  // activeInClinic is managed via the dedicated toggle in the patient list,
+  // not through this general edit form — prevents inconsistent state updates.
+  activeInClinic: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -67,6 +69,9 @@ export function PatientFormDialog({ patient, open, onClose, onSuccess }: Patient
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
       const payload = sanitizeForm(data);
+      // activeInClinic is managed via the dedicated patient-list toggle —
+      // strip it from the general edit payload to avoid corrupting state.
+      if (isEdit) delete (payload as any).activeInClinic;
       return isEdit ? patientsApi.update(patient.id, payload) : patientsApi.create(payload);
     },
     onSuccess: () => {
@@ -74,7 +79,7 @@ export function PatientFormDialog({ patient, open, onClose, onSuccess }: Patient
       onSuccess();
       form.reset();
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(err.message || 'Ndodhi një gabim gjatë ruajtjes'),
   });
 
   return (
@@ -161,14 +166,16 @@ export function PatientFormDialog({ patient, open, onClose, onSuccess }: Patient
               </FormItem>
             )} />
 
-            <FormField control={form.control} name="activeInClinic" render={({ field }) => (
-              <FormItem className="flex items-center gap-2 rounded-lg border p-3">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
-                <FormLabel className="!mt-0 cursor-pointer">Aktiv në klinikë tani (pacienti është fizikisht në klinikë)</FormLabel>
-              </FormItem>
-            )} />
+            {!isEdit && (
+              <FormField control={form.control} name="activeInClinic" render={({ field }) => (
+                <FormItem className="flex items-center gap-2 rounded-lg border p-3">
+                  <FormControl>
+                    <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormLabel className="!mt-0 cursor-pointer">Aktiv në klinikë tani (pacienti është fizikisht në klinikë)</FormLabel>
+                </FormItem>
+              )} />
+            )}
 
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>

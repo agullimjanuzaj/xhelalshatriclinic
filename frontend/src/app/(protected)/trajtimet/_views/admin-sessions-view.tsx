@@ -159,24 +159,25 @@ export function AdminSessionsView() {
         </Button>
       </div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1 max-w-xs">
+      {/* Filters — stack vertically on mobile, row on md+ */}
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
+        <div className="relative w-full md:flex-1 md:max-w-xs">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Kërko pacient..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="pl-9"
+            className="pl-9 w-full"
           />
         </div>
-        <div className="w-56">
+        <div className="w-full md:w-56">
           <PhysiotherapistCombobox
             value={physiotherapistId}
             onChange={(v) => { setPhysiotherapistId(v); setPage(1); }}
             placeholder="Filtro fizioterapeutin"
           />
         </div>
-        <div className="relative">
+        <div className="relative w-full md:w-auto">
           <Input
             type="date"
             value={dateFilter}
@@ -186,7 +187,7 @@ export function AdminSessionsView() {
               if (e.target.value) params.set('date', e.target.value); else params.delete('date');
               router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
             }}
-            className="w-40 pr-8"
+            className="w-full md:w-40 pr-8"
           />
           {dateFilter && (
             <button

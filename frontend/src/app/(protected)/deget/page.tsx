@@ -26,7 +26,6 @@ const schema = z.object({
   city: z.string().min(2, 'Qyteti është i detyrueshëm'),
   address: z.string().min(5, 'Adresa duhet të ketë minimum 5 karaktere'),
   phone: z.string().optional(),
-  email: z.string().email('Email nuk është i vlefshëm').optional().or(z.literal('')),
   sessionPrice: z.coerce.number().min(0, 'Duhet të jetë 0 ose më shumë'),
 });
 
@@ -80,11 +79,11 @@ export default function BranchesPage() {
     );
   }
 
-  const openCreate = () => { setEditItem(null); form.reset({ name: '', city: '', address: '', phone: '', email: '', sessionPrice: 20 }); setDialogOpen(true); };
+  const openCreate = () => { setEditItem(null); form.reset({ name: '', city: '', address: '', phone: '', sessionPrice: 20 }); setDialogOpen(true); };
   const openEdit = (item: any) => {
     setEditItem(item);
     form.reset({
-      name: item.name, city: item.city, address: item.address, phone: item.phone || '', email: item.email || '',
+      name: item.name, city: item.city, address: item.address, phone: item.phone || '',
       sessionPrice: Number(item.sessionPrice ?? 20),
     });
     setDialogOpen(true);
@@ -114,7 +113,6 @@ export default function BranchesPage() {
     },
     { header: 'Adresa', accessor: (row) => <span className="text-sm text-muted-foreground">{row.address}</span> },
     { header: 'Telefoni', accessor: (row) => row.phone || '—' },
-    { header: 'Email', accessor: (row) => row.email || '—' },
     {
       header: 'Çmimi/trajtim',
       accessor: (row) => <span className="text-sm">{Number(row.sessionPrice ?? 20).toFixed(0)}€</span>,
@@ -160,26 +158,26 @@ export default function BranchesPage() {
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Stats — responsive: 1 col on mobile, 3 on lg */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {branches.map((b: any) => (
           <Card key={b.id} className="card-hover">
             <CardContent className="pt-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl gradient-teal flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl gradient-teal flex items-center justify-center flex-shrink-0">
                   <Building2 size={18} className="text-white" />
                 </div>
-                <div>
-                  <p className="font-semibold text-sm">{b.name}</p>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">{b.name}</p>
                   <p className="text-xs text-muted-foreground">{b.city}</p>
                 </div>
               </div>
-              <div className="flex gap-4 mt-3 pt-3 border-t">
-                <div className="text-center">
+              <div className="flex gap-6 mt-3 pt-3 border-t">
+                <div>
                   <p className="text-lg font-bold text-teal-600">{b._count?.userBranches || 0}</p>
                   <p className="text-xs text-muted-foreground">Staf</p>
                 </div>
-                <div className="text-center">
+                <div>
                   <p className="text-lg font-bold text-blue-600">{b._count?.patients || 0}</p>
                   <p className="text-xs text-muted-foreground">Pacientë</p>
                 </div>
@@ -222,22 +220,13 @@ export default function BranchesPage() {
                   <FormMessage />
                 </FormItem>
               )} />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telefoni</FormLabel>
-                    <FormControl><Input placeholder="+383 4X XXX XXX" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="email" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input type="email" placeholder="dega@klinika.com" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </div>
+              <FormField control={form.control} name="phone" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Telefoni</FormLabel>
+                  <FormControl><Input placeholder="+383 4X XXX XXX" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <FormField control={form.control} name="sessionPrice" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Çmimi për trajtim/seancë (€)</FormLabel>
