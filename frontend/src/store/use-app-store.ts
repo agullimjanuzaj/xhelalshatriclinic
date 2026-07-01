@@ -16,7 +16,9 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       selectedBranchId: null,
-      sidebarOpen: true,
+      // Default closed — the sidebar overlay covers the whole screen if left
+      // open after login on mobile. Desktop ignores this via lg:translate-x-0.
+      sidebarOpen: false,
       theme: 'system',
 
       setSelectedBranchId: (id) => set({ selectedBranchId: id }),

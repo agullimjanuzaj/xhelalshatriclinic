@@ -21,7 +21,7 @@ export function Topbar() {
   const role = user?.role || '';
 
   return (
-    <header className="sticky top-0 z-30 h-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-border flex items-center px-4 gap-4">
+    <header className="sticky top-0 z-30 h-14 lg:h-16 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-border flex items-center px-4 gap-4">
       {/* Hamburger */}
       <Button variant="ghost" size="sm" onClick={toggleSidebar} className="lg:hidden">
         <Menu size={20} />

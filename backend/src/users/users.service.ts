@@ -73,7 +73,11 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    const exists = await this.prisma.user.findFirst({ where: { username: dto.username } });
+    // Only block on active (non-deleted) usernames — soft-deleted users free
+    // their username when removed, so the same name can be reused.
+    const exists = await this.prisma.user.findFirst({
+      where: { username: dto.username, deletedAt: null },
+    });
     if (exists) throw new ConflictException('Ky emër përdoruesi është tashmë i regjistruar');
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
@@ -120,10 +124,15 @@ export class UsersService {
   async remove(id: string, requestingUserId: string) {
     if (id === requestingUserId)
       throw new ForbiddenException('Nuk mund të fshini llogarinë tuaj');
-    await this.findOne(id);
+    const user = await this.findOne(id);
+    // Rename the username on soft-delete so the original name is immediately
+    // available for a new user — a DB-level UNIQUE constraint on username
+    // would otherwise block re-registration even though the old record is
+    // logically deleted.
+    const freedUsername = `${user.username}_deleted_${Date.now()}`;
     await this.prisma.user.update({
       where: { id },
-      data: { deletedAt: new Date(), isActive: false },
+      data: { deletedAt: new Date(), isActive: false, username: freedUsername },
     });
     return { message: 'Përdoruesi u fshi me sukses' };
   }

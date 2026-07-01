@@ -21,8 +21,8 @@ export function MobileBottomNav() {
   const items = !isLoading && user?.role ? getMobileNavItemsForRole(user.role) : [];
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-gray-900 border-t border-border">
-      <div className="flex">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-border">
+      <div className="flex" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {items.map((item) => {
           const Icon = ICONS[item.icon];
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -31,14 +31,14 @@ export function MobileBottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex-1 flex flex-col items-center gap-1 py-2 text-xs transition-colors',
+                'flex-1 flex flex-col items-center gap-0.5 py-2 text-xs transition-colors',
                 isActive
                   ? 'text-teal-600 dark:text-teal-400'
                   : 'text-muted-foreground',
               )}
             >
               <Icon size={20} />
-              <span className="text-[10px]">{item.label}</span>
+              <span className="text-[10px] leading-tight">{item.label}</span>
             </Link>
           );
         })}

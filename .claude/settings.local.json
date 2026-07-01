@@ -81,7 +81,8 @@
       "Bash(echo \"BACKEND:$?\")",
       "Bash(echo \"FRONTEND:$?\")",
       "Bash(echo \"TSC:$?\")",
-      "Bash(echo \"BACKEND BUILD:$?\")"
+      "Bash(echo \"BACKEND BUILD:$?\")",
+      "Bash(echo \"DONE:$?\")"
     ]
   }
 }

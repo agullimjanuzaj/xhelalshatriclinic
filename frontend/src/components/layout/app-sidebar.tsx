@@ -48,9 +48,9 @@ export function AppSidebar() {
         )}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-4 h-20 border-b border-border">
-          <Link href="/" className="flex items-center gap-3">
-            <Image src="/icons/icon-192x192.png" alt="Xhelal Shatri Clinic" width={64} height={64} className="rounded-xl flex-shrink-0" />
+        <div className="flex items-center justify-between px-4 h-14 lg:h-16 border-b border-border">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/icons/icon-192x192.png" alt="Xhelal Shatri Clinic" width={40} height={40} className="rounded-xl flex-shrink-0" />
             <div className="flex flex-col">
               <span className="text-sm font-bold text-foreground leading-tight">Xhelal Shatri</span>
               <span className="text-[10px] text-muted-foreground leading-tight">Clinic</span>

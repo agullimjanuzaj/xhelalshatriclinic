@@ -55,7 +55,7 @@ export default function LoginPage() {
 
       if (!result || result.error) {
         if (result?.code === 'inactive_account') {
-          toast.error('Llogaria është joaktive');
+          toast.error('Ky përdorues nuk është aktiv');
         } else {
           toast.error('Emri i përdoruesit ose fjalëkalimi është i pasaktë');
         }
@@ -68,11 +68,21 @@ export default function LoginPage() {
       // to — without this, every page (sidebar, topbar, dashboard) keeps reading
       // the stale pre-login "unauthenticated" state until a window-focus event
       // eventually triggers NextAuth's background refetch. Force it now.
-      const freshSession = (await update()) ?? (await getSession());
+      let freshSession: any = null;
+      try {
+        freshSession = (await update()) ?? (await getSession());
+      } catch {
+        // update() can fail in some environments; fall back to getSession()
+        try { freshSession = await getSession(); } catch { /* ignore */ }
+      }
       queryClient.clear();
-      router.replace(getDashboardPath((freshSession as any)?.user?.role));
-    } catch {
-      toast.error('Ndodhi një gabim. Ju lutemi provoni përsëri.');
+      // If we still have no session after the explicit refetch, redirect anyway
+      // — the middleware will gate protected routes and the session cookie is
+      // already set server-side, so the next navigation will pick it up.
+      router.replace(getDashboardPath((freshSession as any)?.user?.role ?? null));
+    } catch (err) {
+      console.error('[login]', err);
+      toast.error('Ndodhi një gabim gjatë kyçjes. Provoni përsëri.');
       setIsLoading(false);
     }
   };
