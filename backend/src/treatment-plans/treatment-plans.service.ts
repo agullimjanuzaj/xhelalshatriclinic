@@ -369,8 +369,8 @@ export class TreatmentPlansService {
             userId,
             senderId: creator.id,
             type: 'PLAN_CREATED' as any,
-            title: 'Plan i ri trajtimi',
-            message: `Plan trajtimi u krijua për ${plan.patient.firstName} ${plan.patient.lastName}`,
+            title: 'Kontrollë e re',
+            message: `Kontrollë e re u krijua për ${plan.patient.firstName} ${plan.patient.lastName}`,
             data: { treatmentPlanId: plan.id, patientId: plan.patientId },
           })),
         });

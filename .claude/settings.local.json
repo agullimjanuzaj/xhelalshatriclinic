@@ -85,7 +85,24 @@
       "Bash(echo \"DONE:$?\")",
       "Bash(cat \"/var/www/xhelalshatriclinic/backend/.env\" 2>/dev/null | grep -E \"DATABASE|DB_\" | head -5)",
       "Read(//var/www/xhelalshatriclinic/backend/**)",
-      "Bash(xargs grep -l \"izioterapist\")"
+      "Bash(xargs grep -l \"izioterapist\")",
+      "Bash(grep -v \"//\\\\|import\\\\|interface\\\\|type\\\\|dto\\\\|DTO\")",
+      "Bash(grep -v \"//\\\\|\\\\.spec\\\\.\\\\|swagger\\\\|ApiProperty\\\\|ContentSecurityPolicy\\\\|helmet\")",
+      "Bash(grep -rn \"message:\\\\s*['\\\\`]\" \"c:\\\\Users\\\\Gentiana\\\\Desktop\\\\Xhelal Shatri Clinic\\\\backend\\\\src\")",
+      "Bash(grep -v \"//\\\\|\\\\.spec\\\\.\\\\|swagger\\\\|ApiProperty\\\\|return\\\\s*{\\\\s*message\\\\|errorMessage\\\\|validationMessage\\\\|dto\\\\|DTO\\\\|throw\\\\|import\")",
+      "Bash(grep -rn \"body:\\\\s*['\\\\`]\" \"c:\\\\Users\\\\Gentiana\\\\Desktop\\\\Xhelal Shatri Clinic\\\\backend\\\\src\")",
+      "Bash(grep -v \"//\\\\|\\\\.spec\\\\.\\\\|dto\\\\|DTO\\\\|import\\\\|swagger\\\\|ApiProperty\")",
+      "Bash(grep -v \"//\\\\|language\\\\|lang\\\\|locale\")",
+      "Bash(grep -vE \"\\(//|import|metadata|Head>|<title|className|document\\\\.title|openGraph|twitter|card\\\\s\\)\")",
+      "Bash(grep -vE \"\\(import|//|className|href|key=|src=|alt=|type=|placeholder|id=|name=|value=|style=|variant=|size=|icon|gradient|teal|flex|grid|text-|font-|bg-|border-|rounded|px-|py-|pl-|pr-|pt-|pb-|gap-|w-|h-|max-|min-|space-|overflow|animate|cursor|hover|focus|dark:|lg:|md:|sm:|xl:|fixed|absolute|relative|static|z-|shadow|opacity|transition|duration|ease\\)\")",
+      "Bash(grep -v \"//\\\\|\\\\.spec\\\\.\")",
+      "Bash(grep -v \"//\\\\|import\\\\|className\\\\|type=\\\\|enum\\\\|interface\\\\|const \\\\w\\\\+ =\\\\|href=\\\\|export\\\\|\\\\.spec\\\\.\\\\|node_modules\")",
+      "Bash(grep -v \"//\\\\|\\\\.spec\\\\.\\\\|import\\\\|dto\\\\|DTO\\\\|enum NotificationType\")",
+      "Bash(xargs grep -l \"notification\\\\|Notification\\\\|njoftim\\\\|Njoftim\")",
+      "Bash(grep -v \"//\\\\|import\\\\|interface\\\\|type\\\\s\")",
+      "Bash(grep -v \"//\\\\|import\\\\|DRY_NEEDLING\\\\|ELECTROTHERAPY\\\\|ULTRASOUND\\\\|LASER_THERAPY\\\\|SHOCKWAVE\\\\|MANUAL_THERAPY\\\\|THERAPEUTIC_MASSAGE\\\\|KINESIO\\\\|THERAPEUTIC_EXERCISES\\\\|JOINT_MOBILIZATION\\\\|getTreatmentTypeLabel\\\\|utils\\\\.ts\")",
+      "Bash(grep -v \"//\\\\|import\\\\|type\\\\s*=\\\\|interface\\\\|schema\\\\|\\\\.status\\\\s*===\\\\|===\\\\s*'\\\\|!==\\\\s*'\\\\|getSession\\\\|getPayment\\\\|getPatient\\\\|Label\\\\|Color\\\\|utils\\\\.ts\\\\|badge\\\\|Badge\")",
+      "Bash(grep -v \"//\\\\|import\\\\|Label\\\\|Color\\\\|badge\\\\|Badge\\\\|getSession\\\\|getPayment\\\\|utils\\\\.ts\")"
     ]
   }
 }

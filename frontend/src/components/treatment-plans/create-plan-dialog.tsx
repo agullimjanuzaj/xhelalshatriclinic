@@ -229,7 +229,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
       queryClient.invalidateQueries({ queryKey: ['manager-stats'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread'] });
-      toast.success(isEdit ? 'Kontrollëja u përditësua me sukses!' : 'Kontrollëja u krijua me sukses!');
+      toast.success(isEdit ? 'Kontrolla u përditësua me sukses!' : 'Kontrolla u krijua me sukses!');
       form.reset();
       onClose();
     },

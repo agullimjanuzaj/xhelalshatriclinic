@@ -186,17 +186,17 @@ export function PhysioSessionsView() {
       <div className="flex gap-2 w-full sm:w-auto">
         <div className="flex-1 sm:flex-none">
           <label className="text-xs text-muted-foreground block mb-1">Prej</label>
-          <div className="relative">
+          <div className="flex items-center gap-1">
             <Input
               type="date"
               value={dateFrom}
               max={dateTo || undefined}
               onChange={(e) => setDateParam('dateFrom', e.target.value)}
-              className="w-full sm:w-36 pr-7"
+              className="w-full sm:w-36"
             />
             {dateFrom && (
               <button type="button" title="Pastro" onClick={() => setDateParam('dateFrom', '')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted">
                 <X size={13} />
               </button>
             )}
@@ -204,17 +204,17 @@ export function PhysioSessionsView() {
         </div>
         <div className="flex-1 sm:flex-none">
           <label className="text-xs text-muted-foreground block mb-1">Deri</label>
-          <div className="relative">
+          <div className="flex items-center gap-1">
             <Input
               type="date"
               value={dateTo}
               min={dateFrom || undefined}
               onChange={(e) => setDateParam('dateTo', e.target.value)}
-              className="w-full sm:w-36 pr-7"
+              className="w-full sm:w-36"
             />
             {dateTo && (
               <button type="button" title="Pastro" onClick={() => setDateParam('dateTo', '')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted">
                 <X size={13} />
               </button>
             )}

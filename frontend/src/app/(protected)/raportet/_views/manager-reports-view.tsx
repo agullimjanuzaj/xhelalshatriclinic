@@ -115,19 +115,19 @@ export function ManagerReportsView() {
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Data prej</label>
-            <div className="relative">
-              <Input type="date" value={f.fromDate} disabled={!!f.month} onChange={(e) => f.setFromDate(e.target.value)} className="w-40 pr-7" />
+            <div className="flex items-center gap-1">
+              <Input type="date" value={f.fromDate} disabled={!!f.month} onChange={(e) => f.setFromDate(e.target.value)} className="w-40" />
               {f.fromDate && !f.month && (
-                <button type="button" onClick={() => f.setFromDate('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={13} /></button>
+                <button type="button" onClick={() => f.setFromDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
               )}
             </div>
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Data deri</label>
-            <div className="relative">
-              <Input type="date" value={f.toDate} disabled={!!f.month} onChange={(e) => f.setToDate(e.target.value)} className="w-40 pr-7" />
+            <div className="flex items-center gap-1">
+              <Input type="date" value={f.toDate} disabled={!!f.month} onChange={(e) => f.setToDate(e.target.value)} className="w-40" />
               {f.toDate && !f.month && (
-                <button type="button" onClick={() => f.setToDate('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={13} /></button>
+                <button type="button" onClick={() => f.setToDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
               )}
             </div>
           </div>

@@ -239,7 +239,7 @@ function SuggestedConditionsAdmin() {
               <Input
                 value={formState.name}
                 onChange={(e) => setFormState((s) => ({ ...s, name: e.target.value }))}
-                placeholder="p.sh. Gonarthrosis"
+                placeholder="Gonarthrosis"
                 className="mt-1"
               />
             </div>
@@ -409,7 +409,7 @@ function ComplaintsAdmin() {
               <Input
                 value={formState.name}
                 onChange={(e) => setFormState((s) => ({ ...s, name: e.target.value }))}
-                placeholder="p.sh. Dhimbje shpine djathtas"
+                placeholder="Dhimbje shpine djathtas"
                 className="mt-1"
               />
             </div>

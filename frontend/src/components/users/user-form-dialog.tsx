@@ -124,7 +124,7 @@ export function UserFormDialog({ user, open, onClose, onSuccess }: UserFormDialo
                 <FormLabel>Emri i përdoruesit {!isEdit && '*'}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="p.sh. fizio_arta"
+                    placeholder="xhelal"
                     autoComplete="username"
                     disabled={isEdit}
                     {...field}

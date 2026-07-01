@@ -18,7 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Trajtimet', href: ROUTES.sessions, icon: 'Calendar', roles: ['ADMIN', 'MANAGER', 'PHYSIOTHERAPIST'] },
   { label: 'Pagesat', href: ROUTES.payments, icon: 'CreditCard', roles: ['ADMIN', 'MANAGER'] },
   { label: 'Raportet', href: ROUTES.reports, icon: 'BarChart3', roles: ['ADMIN', 'PHYSIOTHERAPIST'] },
-  { label: 'Sugjerime', href: ROUTES.suggestions, icon: 'Lightbulb', roles: ['ADMIN', 'PHYSIOTHERAPIST'] },
+  { label: 'Sugjerime', href: ROUTES.suggestions, icon: 'Lightbulb', roles: ['ADMIN'] },
   { label: 'Përdoruesit', href: ROUTES.users, icon: 'UserCheck', roles: ['ADMIN'] },
   { label: 'Degët', href: ROUTES.branches, icon: 'Building2', roles: ['ADMIN'] },
   { label: 'Llojet e Trajtimeve', href: ROUTES.treatmentTypes, icon: 'Tags', roles: ['ADMIN'] },

@@ -22,6 +22,16 @@ const typeColors: Record<string, string> = {
   PATIENT_ACTIVE: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
 };
 
+const typeLabels: Record<string, string> = {
+  NEW_PATIENT: 'Pacient i ri',
+  SESSION_COMPLETED: 'Trajtim i kompletuar',
+  TREATMENT_REGISTERED: 'Trajtim i regjistruar',
+  PAYMENT_RECEIVED: 'Pagesë e re',
+  SESSION_SCHEDULED: 'Seancë e planifikuar',
+  PLAN_CREATED: 'Kontrollë e re',
+  PATIENT_ACTIVE: 'Pacient aktiv',
+};
+
 export function NotificationBell({ enabled }: { enabled: boolean }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -127,7 +137,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-medium">{n.title}</p>
                       <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', typeColors[n.type] || 'bg-gray-100 text-gray-700')}>
-                        {n.type?.replace(/_/g, ' ')}
+                        {typeLabels[n.type] || n.type?.replace(/_/g, ' ')}
                       </span>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">{n.message}</p>

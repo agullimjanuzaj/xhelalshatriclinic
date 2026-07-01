@@ -150,7 +150,7 @@ export default function LoginPage() {
                   <FormControl>
                     <Input
                       type="text"
-                      placeholder="p.sh. xhelalshatri"
+                      placeholder="xhelalshatri"
                       autoComplete="username"
                       {...field}
                     />
