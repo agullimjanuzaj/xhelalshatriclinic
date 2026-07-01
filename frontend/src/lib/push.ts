@@ -59,19 +59,52 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return buffer;
 }
 
-// Subscribe to push — returns a plain object with the keys needed by the
-// backend's POST /push/subscribe endpoint, or null if subscription failed.
-export async function subscribeToPush(): Promise<{ endpoint: string; p256dh: string; auth: string } | null> {
+// Result type — either success with subscription data, or a specific error.
+export type SubscribeResult =
+  | { endpoint: string; p256dh: string; auth: string; error?: never }
+  | { error: string; endpoint?: never };
+
+export function isSubscribeError(r: SubscribeResult): r is { error: string } {
+  return 'error' in r && typeof (r as any).error === 'string';
+}
+
+function devLog(...args: unknown[]) {
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[push]', ...args);
+  }
+}
+
+// Subscribe to push — returns subscription data or an object with a specific
+// Albanian error message that can be shown directly in the UI.
+export async function subscribeToPush(): Promise<SubscribeResult> {
+  devLog('diagnostics', {
+    hasServiceWorker: 'serviceWorker' in navigator,
+    hasPushManager: 'PushManager' in window,
+    hasNotification: 'Notification' in window,
+    notificationPermission: typeof Notification !== 'undefined' ? Notification.permission : 'N/A',
+    hasVapidKey: !!process.env.NEXT_PUBLIC_VAPID_KEY,
+  });
+
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
   if (!vapidKey) {
-    console.warn('[push] NEXT_PUBLIC_VAPID_KEY is not set');
-    return null;
+    return { error: 'VAPID public key mungon në konfigurim. Kontakto administratorin.' };
   }
-  if (!isPushSupported()) return null;
+
+  if (!isPushSupported()) {
+    return { error: 'Shfletuesi ose pajisja nuk mbështet njoftimet push.' };
+  }
+
+  if (Notification.permission === 'denied') {
+    return { error: 'Leja për njoftime është refuzuar. Aktivizoje nga cilësimet e shfletuesit.' };
+  }
 
   try {
     const registration = await navigator.serviceWorker.ready;
+    devLog('SW ready, scope:', registration.scope);
+
     const existing = await registration.pushManager.getSubscription();
+    devLog('existing subscription:', existing?.endpoint?.slice(0, 60));
+
     const sub = existing || await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(vapidKey),
@@ -79,14 +112,32 @@ export async function subscribeToPush(): Promise<{ endpoint: string; p256dh: str
 
     const json = sub.toJSON();
     const keys = json.keys as Record<string, string> | undefined;
+    devLog('subscription created:', sub.endpoint.slice(0, 60) + '...');
+
     return {
       endpoint: sub.endpoint,
       p256dh: keys?.p256dh ?? '',
       auth: keys?.auth ?? '',
     };
-  } catch (err) {
+  } catch (err: any) {
     console.error('[push] Subscribe failed:', err);
-    return null;
+    const msg: string = err?.message || '';
+
+    if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('denied')) {
+      return { error: 'Leja për njoftime është refuzuar. Aktivizoje nga cilësimet e shfletuesit.' };
+    }
+    if (
+      msg.toLowerCase().includes('applicationserverkey') ||
+      msg.toLowerCase().includes('vapid') ||
+      msg.toLowerCase().includes('invalid key') ||
+      msg.toLowerCase().includes('key')
+    ) {
+      return { error: 'VAPID key është i pavlefshëm. Kontakto administratorin.' };
+    }
+    if (msg.toLowerCase().includes('serviceworker') || msg.toLowerCase().includes('service worker')) {
+      return { error: 'Service worker nuk është gati. Rindiz faqen dhe provo sërish.' };
+    }
+    return { error: `Subscription dështoi: ${msg || 'gabim i panjohur'}` };
   }
 }
 

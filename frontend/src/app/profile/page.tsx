@@ -6,7 +6,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { authApi, pushApi } from '@/lib/api';
 import {
   getPermissionStatus, isPushSupported, isIOS, isInstalledPWA,
-  requestPermission, subscribeToPush, unsubscribeFromPush,
+  requestPermission, subscribeToPush, unsubscribeFromPush, isSubscribeError,
 } from '@/lib/push';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,8 +53,17 @@ function PushNotificationsSection() {
 
   const testMutation = useMutation({
     mutationFn: () => pushApi.sendTest(),
-    onSuccess: () => toast.success('Notification testimi u dërgua!'),
-    onError: () => toast.error('Dërgimi i testimit dështoi'),
+    onSuccess: (res: any) => {
+      if (res?.data?.sent === false) {
+        toast.error('Nuk ka subscription aktive. Aktivizo njoftimet fillimisht.');
+      } else {
+        toast.success('Njoftimi i testimit u dërgua!');
+      }
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || 'gabim i panjohur';
+      toast.error(`Dërgimi dështoi: ${msg}`);
+    },
   });
 
   const handleActivate = async () => {
@@ -62,32 +71,35 @@ function PushNotificationsSection() {
     try {
       // 1. Ask for browser permission if not yet granted
       if (permission === 'default') {
-        const result = await requestPermission();
-        setPermission(result);
-        if (result !== 'granted') {
+        const perm = await requestPermission();
+        setPermission(perm);
+        if (perm !== 'granted') {
+          if (perm === 'denied') {
+            toast.error('Leja u refuzua. Aktivizoje nga cilësimet e shfletuesit te "Notifications".');
+          }
           setBusy(false);
           return;
         }
       }
       // 2. Create the push subscription in the browser
-      const sub = await subscribeToPush();
-      if (!sub) {
-        if (iosDevice && !installedPWA) {
-          toast.error('Instalo aplikacionin në Home Screen të iPhone: Share → "Add to Home Screen", pastaj hape nga aty dhe provo sërish.');
-        } else if (!isPushSupported()) {
-          toast.error('Shfletuesi ose pajisja juaj nuk mbështet njoftimet push.');
-        } else {
-          toast.error('Nuk u krijua subscription. Provo të rindizësh faqen ose kontakto administratorin.');
-        }
+      const result = await subscribeToPush();
+      if (isSubscribeError(result)) {
+        toast.error(result.error);
         setBusy(false);
         return;
       }
       // 3. Register with backend
-      await pushApi.subscribe({ ...sub, userAgent: navigator.userAgent });
+      await pushApi.subscribe({ ...result, userAgent: navigator.userAgent });
       await refetchStatus();
       toast.success('Njoftimet u aktivizuan!');
-    } catch (err) {
-      toast.error('Aktivizimi dështoi. Provo përsëri.');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401) {
+        toast.error('Seanca ka skaduar. Kyçuni sërish.');
+      } else {
+        const msg = err?.response?.data?.message || err?.message || '';
+        toast.error(msg ? `Aktivizimi dështoi: ${msg}` : 'Aktivizimi dështoi. Provo sërish.');
+      }
     } finally {
       setBusy(false);
     }
@@ -191,7 +203,7 @@ function PushNotificationsSection() {
                 onClick={() => testMutation.mutate()}
               >
                 {testMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <BellRing size={13} />}
-                Testo
+                Dërgo njoftim test
               </Button>
             </>
           )}
