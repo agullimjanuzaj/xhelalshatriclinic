@@ -180,7 +180,7 @@ export function UserFormDialog({ user, open, onClose, onSuccess }: UserFormDialo
                     <SelectContent>
                       <SelectItem value="ADMIN">Administrator</SelectItem>
                       <SelectItem value="MANAGER">Menaxher</SelectItem>
-                      <SelectItem value="PHYSIOTHERAPIST">Fizioterapist</SelectItem>
+                      <SelectItem value="PHYSIOTHERAPIST">Fizioterapeut</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormItem>

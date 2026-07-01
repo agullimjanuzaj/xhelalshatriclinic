@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatCurrency } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter } from 'lucide-react';
+import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter, X } from 'lucide-react';
 import { ClinicSettingsCard } from '@/components/reports/clinic-settings-card';
 import { BonusConfigCard } from '@/components/reports/bonus-config-card';
 
@@ -144,11 +144,21 @@ export function AdminReportsView() {
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Data prej</label>
-            <Input type="date" value={f.fromDate} disabled={!!f.month} onChange={(e) => f.setFromDate(e.target.value)} className="w-40" />
+            <div className="relative">
+              <Input type="date" value={f.fromDate} disabled={!!f.month} onChange={(e) => f.setFromDate(e.target.value)} className="w-40 pr-7" />
+              {f.fromDate && !f.month && (
+                <button type="button" onClick={() => f.setFromDate('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={13} /></button>
+              )}
+            </div>
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Data deri</label>
-            <Input type="date" value={f.toDate} disabled={!!f.month} onChange={(e) => f.setToDate(e.target.value)} className="w-40" />
+            <div className="relative">
+              <Input type="date" value={f.toDate} disabled={!!f.month} onChange={(e) => f.setToDate(e.target.value)} className="w-40 pr-7" />
+              {f.toDate && !f.month && (
+                <button type="button" onClick={() => f.setToDate('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X size={13} /></button>
+              )}
+            </div>
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Përdoruesi</label>
@@ -236,7 +246,7 @@ export function AdminReportsView() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-sm">Trajtimet sipas fizioterapistit</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-sm">Trajtimet sipas fizioterapeutit</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {sessionsPhysioData.map((p: any) => (

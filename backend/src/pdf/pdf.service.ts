@@ -105,7 +105,7 @@ export class PdfService {
     // a physiotherapist has no finance access at all, and a manager is
     // confined to their own branch's invoices, same as everywhere else.
     if (user.role === Role.PHYSIOTHERAPIST) {
-      throw new ForbiddenException('Fizioterapisti nuk ka qasje në faturat');
+      throw new ForbiddenException('Fizioterapeuti nuk ka qasje në faturat');
     }
     if (user.role === Role.MANAGER) {
       const branchIds = user.userBranches?.map((ub: any) => ub.branchId) || [];
@@ -472,7 +472,7 @@ export class PdfService {
     y += 14;
     if (payment.treatmentPlan?.assignedPhysiotherapist) {
       const p = payment.treatmentPlan.assignedPhysiotherapist;
-      doc.text(`Fizioterapisti:`, 50, y).text(`${p.firstName} ${p.lastName}`, 180, y);
+      doc.text(`Fizioterapeuti:`, 50, y).text(`${p.firstName} ${p.lastName}`, 180, y);
       y += 14;
     }
     if (payment.treatmentPlan?.createdByUser) {
@@ -669,7 +669,7 @@ export class PdfService {
 
     doc.moveTo(50, y).lineTo(545, y).stroke('#e2e8f0');
     y += 10;
-    doc.font('Helvetica-Bold').fontSize(11).text('Fizioterapisti', 50, y);
+    doc.font('Helvetica-Bold').fontSize(11).text('Fizioterapeuti', 50, y);
     y += 16;
     doc.font('Helvetica').fontSize(10);
     {

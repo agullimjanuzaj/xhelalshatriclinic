@@ -153,7 +153,7 @@ export class SessionsService {
     // performed them on — never pick a different physiotherapist — and only
     // for patients in their own branch (or a plan explicitly assigned to them).
     if (user.role === Role.PHYSIOTHERAPIST && dto.physiotherapistId && dto.physiotherapistId !== user.id) {
-      throw new ForbiddenException('Fizioterapisti mund të regjistrojë seanca vetëm në emrin e vet');
+      throw new ForbiddenException('Fizioterapeuti mund të regjistrojë seanca vetëm në emrin e vet');
     }
 
     if (dto.physiotherapistId) {
@@ -162,7 +162,7 @@ export class SessionsService {
       });
       if (!physio) throw new NotFoundException('Fizioterapeuti nuk u gjet');
       if (physio.role !== Role.PHYSIOTHERAPIST) {
-        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapist');
+        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapeut');
       }
     }
 
@@ -234,7 +234,7 @@ export class SessionsService {
       // A plan with no assigned physio yet is fair game for any physio in
       // that branch — assignment only matters when it's set to someone else.
       if (treatmentPlan.assignedPhysiotherapistId && !isAssignedToMe && !isOwnBranch) {
-        throw new ForbiddenException('Ky trajtim është caktuar për një fizioterapist tjetër');
+        throw new ForbiddenException('Ky trajtim është caktuar për një fizioterapeut tjetër');
       }
       if (!isAssignedToMe && !isOwnBranch) {
         throw new ForbiddenException('Mund të regjistroni seanca vetëm për trajtime të degës tuaj');
@@ -315,7 +315,7 @@ export class SessionsService {
       });
       if (!physio) throw new NotFoundException('Fizioterapeuti nuk u gjet');
       if (physio.role !== Role.PHYSIOTHERAPIST) {
-        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapist');
+        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapeut');
       }
     }
 
@@ -373,7 +373,7 @@ export class SessionsService {
       if (data.physiotherapistId) {
         const physio = await this.prisma.user.findFirst({ where: { id: data.physiotherapistId, deletedAt: null } });
         if (!physio) throw new NotFoundException('Fizioterapeuti nuk u gjet');
-        if (physio.role !== Role.PHYSIOTHERAPIST) throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapist');
+        if (physio.role !== Role.PHYSIOTHERAPIST) throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapeut');
       }
     }
 

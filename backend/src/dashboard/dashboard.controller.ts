@@ -31,7 +31,7 @@ export class DashboardController {
 
   @Get('physiotherapist')
   @Roles(Role.PHYSIOTHERAPIST)
-  @ApiOperation({ summary: 'Statistikat e Fizioterapistit' })
+  @ApiOperation({ summary: 'Statistikat e Fizioterapeutit' })
   getPhysiotherapistStats(@CurrentUser('id') userId: string) {
     return this.dashboardService.getPhysiotherapistStats(userId);
   }

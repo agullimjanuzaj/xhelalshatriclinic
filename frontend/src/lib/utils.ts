@@ -124,7 +124,7 @@ export function getRoleLabel(role: string): string {
   const map: Record<string, string> = {
     ADMIN: 'Administrator',
     MANAGER: 'Menaxher',
-    PHYSIOTHERAPIST: 'Fizioterapist',
+    PHYSIOTHERAPIST: 'Fizioterapeut',
   };
   return map[role] || role;
 }

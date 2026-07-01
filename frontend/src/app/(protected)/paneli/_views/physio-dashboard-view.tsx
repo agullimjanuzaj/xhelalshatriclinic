@@ -44,7 +44,7 @@ export function PhysioDashboardView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Mirë se vini!</h1>
-          <p className="text-sm text-muted-foreground">Paneli i Fizioterapistit</p>
+          <p className="text-sm text-muted-foreground">Paneli i Fizioterapeutit</p>
         </div>
         <div className="flex gap-2">
           <Button className="gap-2 gradient-teal text-white border-0" size="sm" onClick={() => setShowCreateSession(true)}>

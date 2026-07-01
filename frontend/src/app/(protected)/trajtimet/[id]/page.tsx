@@ -101,7 +101,7 @@ export default function SessionDetailPage() {
         <CardContent className="space-y-2 text-sm">
           <p><span className="text-muted-foreground">Pacienti:</span> {sessionData.patient?.firstName} {sessionData.patient?.lastName}</p>
           <p><span className="text-muted-foreground">Dega:</span> {sessionData.branch?.name}</p>
-          <p><span className="text-muted-foreground">Fizioterapisti:</span> {(sessionData.physiotherapist || sessionData.completedByUser) ? `${(sessionData.physiotherapist || sessionData.completedByUser).firstName} ${(sessionData.physiotherapist || sessionData.completedByUser).lastName}` : 'Nuk është caktuar'}</p>
+          <p><span className="text-muted-foreground">Fizioterapeuti:</span> {(sessionData.physiotherapist || sessionData.completedByUser) ? `${(sessionData.physiotherapist || sessionData.completedByUser).firstName} ${(sessionData.physiotherapist || sessionData.completedByUser).lastName}` : 'Nuk është caktuar'}</p>
           <p><span className="text-muted-foreground">Data:</span> {sessionData.scheduledAt ? formatDateTime(sessionData.scheduledAt) : 'Pa datë/orë'}</p>
           {sessionData.treatmentPlan && (
             <p>

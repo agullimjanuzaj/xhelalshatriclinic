@@ -42,19 +42,27 @@ export function PhysioSessionsView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const dateFilter = searchParams.get('date') || '';
+  const dateFrom = searchParams.get('dateFrom') || '';
+  const dateTo = searchParams.get('dateTo') || '';
   const [page, setPage] = useState(1);
   const [completeId, setCompleteId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [editSession, setEditSession] = useState<any>(null);
   const [deleteSession, setDeleteSession] = useState<any>(null);
 
+  const setDateParam = (key: 'dateFrom' | 'dateTo', value: string) => {
+    setPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value); else params.delete(key);
+    router.replace(params.size ? `${pathname}?${params.toString()}` : pathname);
+  };
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['sessions-physio', page, dateFilter, session?.user?.id],
+    queryKey: ['sessions-physio', page, dateFrom, dateTo, session?.user?.id],
     queryFn: () => sessionsApi.getAll({
       page, limit: 24, physiotherapistId: session?.user?.id,
-      dateFrom: dateFilter || undefined,
-      dateTo: dateFilter ? `${dateFilter}T23:59:59` : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo ? `${dateTo}T23:59:59` : undefined,
     }),
     enabled: !!session?.user?.id,
     placeholderData: keepPreviousData,
@@ -163,45 +171,62 @@ export function PhysioSessionsView() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold">Trajtimet e mia</h1>
           <p className="text-sm text-muted-foreground">Trajtimet e caktuara për ju</p>
         </div>
-        <div className="flex items-center gap-2">
+        <Button onClick={() => setShowCreate(true)} className="gap-2 gradient-teal text-white border-0 self-start sm:self-auto">
+          <Plus size={16} />Trajtim i ri
+        </Button>
+      </div>
+
+      {/* Date range filters — stacked on mobile */}
+      <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex-1 sm:flex-none">
+          <label className="text-xs text-muted-foreground block mb-1">Prej</label>
           <div className="relative">
             <Input
               type="date"
-              value={dateFilter}
-              onChange={(e) => {
-                setPage(1);
-                const params = new URLSearchParams(searchParams.toString());
-                if (e.target.value) params.set('date', e.target.value); else params.delete('date');
-                router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname);
-              }}
-              className="w-36 sm:w-40 pr-8"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateParam('dateFrom', e.target.value)}
+              className="w-full sm:w-36 pr-7"
             />
-            {dateFilter && (
-              <button
-                type="button"
-                title="Pastro datën"
-                onClick={() => { setPage(1); router.replace(pathname); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X size={14} />
+            {dateFrom && (
+              <button type="button" title="Pastro" onClick={() => setDateParam('dateFrom', '')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X size={13} />
               </button>
             )}
           </div>
-          <Button onClick={() => setShowCreate(true)} className="gap-2 gradient-teal text-white border-0">
-            <Plus size={16} />Trajtim i ri
-          </Button>
+        </div>
+        <div className="flex-1 sm:flex-none">
+          <label className="text-xs text-muted-foreground block mb-1">Deri</label>
+          <div className="relative">
+            <Input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateParam('dateTo', e.target.value)}
+              className="w-full sm:w-36 pr-7"
+            />
+            {dateTo && (
+              <button type="button" title="Pastro" onClick={() => setDateParam('dateTo', '')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X size={13} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {dateFilter && (
-        <p className="text-sm text-muted-foreground">
-          Duke shfaqur trajtimet e datës <strong>{formatDate(dateFilter)}</strong>
+      {(dateFrom || dateTo) && (
+        <p className="text-xs text-muted-foreground">
+          {dateFrom && dateTo
+            ? <>Prej <strong>{formatDate(dateFrom)}</strong> deri <strong>{formatDate(dateTo)}</strong></>
+            : dateFrom ? <>Prej <strong>{formatDate(dateFrom)}</strong></> : <>Deri <strong>{formatDate(dateTo)}</strong></>}
         </p>
       )}
 

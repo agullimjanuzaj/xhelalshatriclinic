@@ -104,7 +104,7 @@ export function AppSidebar() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground truncate">{user?.name}</p>
               <p className="text-xs text-muted-foreground truncate">
-                {role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Menaxher' : role === 'PHYSIOTHERAPIST' ? 'Fizioterapist' : ''}
+                {role === 'ADMIN' ? 'Administrator' : role === 'MANAGER' ? 'Menaxher' : role === 'PHYSIOTHERAPIST' ? 'Fizioterapeut' : ''}
               </p>
             </div>
           </Link>

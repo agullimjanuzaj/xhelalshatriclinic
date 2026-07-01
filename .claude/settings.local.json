@@ -82,7 +82,10 @@
       "Bash(echo \"FRONTEND:$?\")",
       "Bash(echo \"TSC:$?\")",
       "Bash(echo \"BACKEND BUILD:$?\")",
-      "Bash(echo \"DONE:$?\")"
+      "Bash(echo \"DONE:$?\")",
+      "Bash(cat \"/var/www/xhelalshatriclinic/backend/.env\" 2>/dev/null | grep -E \"DATABASE|DB_\" | head -5)",
+      "Read(//var/www/xhelalshatriclinic/backend/**)",
+      "Bash(xargs grep -l \"izioterapist\")"
     ]
   }
 }

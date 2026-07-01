@@ -166,7 +166,7 @@ export class TreatmentPlansService {
       });
       if (!physio) throw new NotFoundException('Fizioterapeuti nuk u gjet');
       if (physio.role !== Role.PHYSIOTHERAPIST) {
-        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapist');
+        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapeut');
       }
     }
 
@@ -241,7 +241,7 @@ export class TreatmentPlansService {
       });
       if (!physio) throw new NotFoundException('Fizioterapeuti nuk u gjet');
       if (physio.role !== Role.PHYSIOTHERAPIST) {
-        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapist');
+        throw new BadRequestException('Përdoruesi i caktuar nuk është fizioterapeut');
       }
     }
 

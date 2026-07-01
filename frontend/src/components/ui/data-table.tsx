@@ -91,6 +91,7 @@ export function DataTable<T extends object>({
   return (
     <div className={cn('space-y-4', className)}>
       <div className="rounded-2xl border border-border overflow-hidden">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -121,6 +122,7 @@ export function DataTable<T extends object>({
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {pagination && pagination.totalPages > 1 && (
