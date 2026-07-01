@@ -102,7 +102,11 @@
       "Bash(grep -v \"//\\\\|import\\\\|interface\\\\|type\\\\s\")",
       "Bash(grep -v \"//\\\\|import\\\\|DRY_NEEDLING\\\\|ELECTROTHERAPY\\\\|ULTRASOUND\\\\|LASER_THERAPY\\\\|SHOCKWAVE\\\\|MANUAL_THERAPY\\\\|THERAPEUTIC_MASSAGE\\\\|KINESIO\\\\|THERAPEUTIC_EXERCISES\\\\|JOINT_MOBILIZATION\\\\|getTreatmentTypeLabel\\\\|utils\\\\.ts\")",
       "Bash(grep -v \"//\\\\|import\\\\|type\\\\s*=\\\\|interface\\\\|schema\\\\|\\\\.status\\\\s*===\\\\|===\\\\s*'\\\\|!==\\\\s*'\\\\|getSession\\\\|getPayment\\\\|getPatient\\\\|Label\\\\|Color\\\\|utils\\\\.ts\\\\|badge\\\\|Badge\")",
-      "Bash(grep -v \"//\\\\|import\\\\|Label\\\\|Color\\\\|badge\\\\|Badge\\\\|getSession\\\\|getPayment\\\\|utils\\\\.ts\")"
+      "Bash(grep -v \"//\\\\|import\\\\|Label\\\\|Color\\\\|badge\\\\|Badge\\\\|getSession\\\\|getPayment\\\\|utils\\\\.ts\")",
+      "Bash(grep -v \"//\\\\|node_modules\\\\|\\\\.spec\\\\.\")",
+      "Bash(grep -v \"//\\\\|import\\\\|queryKey\\\\|queryFn\\\\|apiUrl\\\\|\\\\.id\\\\|\\\\.status\\\\|\\\\.count\\\\|\\\\.data\\\\|sessionsApi\\\\|useSession\\\\|getSession\\\\|setSession\\\\|authSession\\\\|Sessions\\\\|session=\\\\|sessionId\\\\|sessionNumber\\\\|sessionsCompleted\\\\|physio\\\\|treatmentPlanId\\\\|sessionsData\\\\|sessionsByDay\\\\|sessionsList\\\\|sessionsByPhysio\\\\|sessionsPhysioData\\\\|sessionsBranchData\\\\|sessionsApi\\\\|sessions-physio\\\\|sessions-manager\\\\|sessions'\\\\]\")",
+      "Bash(grep -v \"//\\\\|import\\\\|queryKey\\\\|queryFn\\\\|apiUrl\\\\|sessionsApi\\\\|invalidate\\\\|useSession\\\\|getSession\\\\|next-auth\\\\|Queries\\\\|\\\\.spec\\\\.\")",
+      "Bash(grep -v \"//\\\\|import\")"
     ]
   }
 }

@@ -11,7 +11,7 @@ import { StatsCard } from '@/components/ui/stats-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatCount } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter, X } from 'lucide-react';
@@ -238,7 +238,7 @@ export function AdminReportsView() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="branchName" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} width={30} />
-                    <Tooltip />
+                    <Tooltip formatter={(v: any) => [v, 'Trajtime']} />
                     <Bar dataKey="sessions" fill="#0d9488" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -252,7 +252,7 @@ export function AdminReportsView() {
                   {sessionsPhysioData.map((p: any) => (
                     <div key={p.physiotherapistId} className="flex justify-between items-center py-1 border-b last:border-0">
                       <span className="text-sm">{p.physiotherapistName}</span>
-                      <span className="font-bold text-sm">{p.sessions} trajtime</span>
+                      <span className="font-bold text-sm">{formatCount(p.sessions, 'trajtim', 'trajtime')}</span>
                     </div>
                   ))}
                   {!sessionsPhysioData.length && (

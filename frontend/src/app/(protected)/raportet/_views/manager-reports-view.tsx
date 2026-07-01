@@ -12,7 +12,7 @@ import { StatsCard } from '@/components/ui/stats-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatCount } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, AlertTriangle, Users, Activity, CalendarCheck, Filter, FilterX, Stethoscope, X } from 'lucide-react';
 import { ClinicSettingsCard } from '@/components/reports/clinic-settings-card';
@@ -172,7 +172,7 @@ export function ManagerReportsView() {
             {sessionsByPhysio.map((p: any) => (
               <div key={p.physiotherapistId} className="flex justify-between items-center py-1 border-b last:border-0">
                 <span className="text-sm">{p.physiotherapistName}</span>
-                <span className="font-bold text-sm">{p.sessions} trajtime</span>
+                <span className="font-bold text-sm">{formatCount(p.sessions, 'trajtim', 'trajtime')}</span>
               </div>
             ))}
             {!sessionsByPhysio.length && (

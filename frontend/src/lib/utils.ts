@@ -53,7 +53,7 @@ export function formatActiveUntil(expiresAt: string | Date | null | undefined): 
   const diffMs = d.getTime() - Date.now();
   if (diffMs <= 0) return 'Ka skaduar';
   const mins = Math.round(diffMs / 60_000);
-  const timeStr = d.toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit' });
+  const timeStr = d.toLocaleTimeString('sq-AL', { hour: '2-digit', minute: '2-digit', hour12: false });
   if (mins < 60) return `Aktiv deri: ${timeStr} (${mins} min)`;
   return `Aktiv deri: ${timeStr}`;
 }
@@ -75,7 +75,12 @@ export function formatDateTime(date: string | Date | null | undefined): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
+}
+
+export function formatCount(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 export function getInitials(firstName: string, lastName: string): string {

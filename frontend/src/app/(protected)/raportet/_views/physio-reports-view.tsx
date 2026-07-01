@@ -104,7 +104,7 @@ export function PhysioReportsView() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={25} />
-                <Tooltip />
+                <Tooltip formatter={(v: any) => [v, 'Trajtime']} />
                 <Bar dataKey="count" fill="#0d9488" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

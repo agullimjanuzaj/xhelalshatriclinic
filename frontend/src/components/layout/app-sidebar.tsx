@@ -41,10 +41,14 @@ export function AppSidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 h-full w-64 flex-col bg-white dark:bg-gray-900 border-r border-border shadow-sm transition-transform duration-300',
+          'fixed left-0 z-50 w-64 flex-col bg-white dark:bg-gray-900 border-r border-border shadow-sm transition-transform duration-300',
           'flex',
+          // Mobile: start below header (h-14) and end above bottom nav + safe area
+          'top-14 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]',
+          // Desktop: full height, static (not fixed)
+          'lg:top-0 lg:bottom-0 lg:h-full lg:static lg:z-auto lg:shadow-none',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          'lg:translate-x-0 lg:static lg:z-auto lg:shadow-none',
+          'lg:translate-x-0',
         )}
       >
         {/* Logo */}

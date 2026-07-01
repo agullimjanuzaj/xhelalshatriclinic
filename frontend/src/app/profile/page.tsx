@@ -72,7 +72,13 @@ function PushNotificationsSection() {
       // 2. Create the push subscription in the browser
       const sub = await subscribeToPush();
       if (!sub) {
-        toast.error('Nuk u krijua subscription. Sigurohu që PWA është instaluar (iOS) ose provo browser tjetër.');
+        if (iosDevice && !installedPWA) {
+          toast.error('Instalo aplikacionin në Home Screen të iPhone: Share → "Add to Home Screen", pastaj hape nga aty dhe provo sërish.');
+        } else if (!isPushSupported()) {
+          toast.error('Shfletuesi ose pajisja juaj nuk mbështet njoftimet push.');
+        } else {
+          toast.error('Nuk u krijua subscription. Provo të rindizësh faqen ose kontakto administratorin.');
+        }
         setBusy(false);
         return;
       }

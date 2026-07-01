@@ -8,7 +8,7 @@ import { StatsCard } from '@/components/ui/stats-card';
 import { PaymentBadge } from '@/components/ui/payment-badge';
 import { SessionBadge } from '@/components/ui/session-badge';
 import { LoadingSkeleton } from '@/components/ui/loading-skeleton';
-import { formatCurrency, formatDateTime, getInitials } from '@/lib/utils';
+import { formatCurrency, formatDateTime, getInitials, formatCount } from '@/lib/utils';
 import { Calendar, Activity, UserCheck, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getSessionsPath, getTreatmentsPath, getReportsPath, getPatientsPath } from '@/lib/routes';
@@ -67,7 +67,7 @@ export function AdminDashboardView() {
         <StatsCard
           title="Kontrollat totale"
           value={overview.totalTreatments ?? 0}
-          description={`${overview.monthSessions ?? 0} trajtime këtë muaj`}
+          description={`${formatCount(overview.monthSessions ?? 0, 'trajtim', 'trajtime')} këtë muaj`}
           icon={Activity}
           gradient="emerald"
           onClick={() => router.push(getTreatmentsPath())}

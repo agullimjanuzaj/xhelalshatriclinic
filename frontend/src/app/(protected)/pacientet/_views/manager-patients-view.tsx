@@ -104,7 +104,7 @@ export function ManagerPatientsView() {
     {
       header: 'Aktiv në klinikë',
       accessor: (row: any) => (
-        <div data-stop-row-click className="flex items-center gap-2">
+        <div data-stop-row-click className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
           <Switch
             checked={row.activeInClinic}
             onCheckedChange={(v) => toggleActiveMutation.mutate({ id: row.id, value: v })}
