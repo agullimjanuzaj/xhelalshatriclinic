@@ -373,7 +373,7 @@ export class PdfService {
     </table>
   </div>
 
-  ${plan.notes ? `<div class="section"><div class="section-title">Shënime nëse ka</div><div class="notes">${esc(plan.notes)}</div></div>` : ''}
+  ${plan.notes ? `<div class="section"><div class="section-title">Përshkrim</div><div class="notes">${esc(plan.notes)}</div></div>` : ''}
 
   <div class="section">
     <div class="section-title">Progresi</div>
