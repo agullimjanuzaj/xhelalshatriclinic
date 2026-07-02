@@ -71,13 +71,15 @@ export function PhysioReportsView() {
       </div>
 
       <Card>
-        <CardContent className="pt-4 flex flex-wrap items-end gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Muaji</label>
-            <Input type="month" value={f.month} onChange={(e) => f.setMonth(e.target.value)} className="w-40" />
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+            <div>
+              <label className="text-xs text-muted-foreground">Muaji</label>
+              <Input type="month" value={f.month} onChange={(e) => f.setMonth(e.target.value)} className="w-full sm:w-40" />
+            </div>
+            <Button onClick={f.apply} className="col-span-2 w-full sm:w-auto gap-2 gradient-teal text-white border-0"><Filter size={14} />Filtro</Button>
+            <Button variant="outline" onClick={f.clear} className="col-span-2 w-full sm:w-auto gap-2"><FilterX size={14} />Pastro filtrat</Button>
           </div>
-          <Button onClick={f.apply} className="gap-2 gradient-teal text-white border-0"><Filter size={14} />Filtro</Button>
-          <Button variant="outline" onClick={f.clear} className="gap-2"><FilterX size={14} />Pastro filtrat</Button>
         </CardContent>
       </Card>
 

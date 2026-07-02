@@ -11,8 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { getTreatmentTypeLabel } from '@/lib/utils';
 import { getPatientDetailPath } from '@/lib/routes';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showTreatmentPlan, printTreatmentPlan } from '@/lib/invoice';
-import { buildTreatmentShareText } from '@/lib/share';
+import { showTreatmentPlan, printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
 
 export function ManagerTreatmentsView() {
   const { data: session } = useSession();
@@ -68,16 +67,7 @@ export function ManagerTreatmentsView() {
         <DocumentActions
           onShow={() => showTreatmentPlan(row.id)}
           onPrint={() => printTreatmentPlan(row.id)}
-          shareText={buildTreatmentShareText({
-            patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-            diagnosis: row.diagnosis,
-            treatmentTypes: row.treatmentTypes,
-            totalSessions: row.totalSessions,
-            completedSessions: row.completedSessions,
-            totalTreatmentValue: Number(row.totalAmount),
-            totalPaidAmount: Number(row.amountPaid),
-            currentDebt: Math.max(0, Number(row.totalAmount) - Number(row.amountPaid)),
-          })}
+          onShare={() => shareTreatmentPlan(row.id, row.patient?.firstName, row.patient?.lastName)}
         />
       ),
     },

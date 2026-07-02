@@ -3,16 +3,20 @@
 import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { treatmentPlansApi } from '@/lib/api';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { getTreatmentTypeLabel } from '@/lib/utils';
 import { getPatientDetailPath } from '@/lib/routes';
 import { Badge } from '@/components/ui/badge';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showTreatmentPlan, printTreatmentPlan } from '@/lib/invoice';
-import { buildTreatmentShareText } from '@/lib/share';
+import { showTreatmentPlan, printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
+
+const ASSIGNED_ROW = 'border-l-[3px] border-l-teal-500 bg-teal-50/40 dark:bg-teal-950/20';
 
 export function PhysioTreatmentsView() {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
   const router = useRouter();
   const [page, setPage] = useState(1);
 
@@ -66,16 +70,7 @@ export function PhysioTreatmentsView() {
         <DocumentActions
           onShow={() => showTreatmentPlan(row.id)}
           onPrint={() => printTreatmentPlan(row.id)}
-          shareText={buildTreatmentShareText({
-            patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-            diagnosis: row.diagnosis,
-            treatmentTypes: row.treatmentTypes,
-            totalSessions: row.totalSessions,
-            completedSessions: row.completedSessions,
-            totalTreatmentValue: Number(row.totalAmount),
-            totalPaidAmount: Number(row.amountPaid),
-            currentDebt: Math.max(0, Number(row.totalAmount) - Number(row.amountPaid)),
-          })}
+          onShare={() => shareTreatmentPlan(row.id, row.patient?.firstName, row.patient?.lastName)}
         />
       ),
     },
@@ -98,6 +93,7 @@ export function PhysioTreatmentsView() {
         onPageChange={setPage}
         emptyMessage="Nuk ka kontrolla"
         onRowClick={(row: any) => router.push(`${getPatientDetailPath('PHYSIOTHERAPIST', row.patientId)}?tab=trajtimet`)}
+        rowClassName={(row: any) => row.assignedPhysiotherapistId === userId ? ASSIGNED_ROW : undefined}
       />
     </div>
   );

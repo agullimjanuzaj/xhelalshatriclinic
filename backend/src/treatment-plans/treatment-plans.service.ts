@@ -296,6 +296,29 @@ export class TreatmentPlansService {
           newData: { assignedPhysiotherapistId: data.assignedPhysiotherapistId },
         },
       });
+
+      if (data.assignedPhysiotherapistId) {
+        const newPhysioId = data.assignedPhysiotherapistId as string;
+        const patientName = `${(updated as any).patient.firstName} ${(updated as any).patient.lastName}`;
+        try {
+          await this.prisma.notification.create({
+            data: {
+              userId: newPhysioId,
+              senderId: user.id,
+              type: 'PLAN_CREATED' as any,
+              title: 'Kontrollë e caktuar',
+              message: `Jeni caktuar në kontrollën e pacientit ${patientName}`,
+              data: { treatmentPlanId: id, patientId: (updated as any).patientId },
+            },
+          });
+          this.pushService.sendToUsers([newPhysioId], {
+            title: 'Kontrollë e caktuar',
+            body: `Jeni caktuar në kontrollën e pacientit ${patientName}`,
+            url: `/pacientet/${(updated as any).patientId}`,
+            tag: `plan-assigned-${id}`,
+          }).catch(() => {});
+        } catch {}
+      }
     }
 
     // totalSessions may have changed in a way that flips this plan between

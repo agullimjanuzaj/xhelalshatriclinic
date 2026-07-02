@@ -14,8 +14,7 @@ import { formatDate } from '@/lib/utils';
 import { Calendar, CheckCircle2, CreditCard, X } from 'lucide-react';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
-import { showSessionReport, printSessionReport } from '@/lib/invoice';
-import { buildSessionShareText } from '@/lib/share';
+import { showSessionReport, printSessionReport, shareSessionReport } from '@/lib/invoice';
 
 export function ManagerSessionsView() {
   const { data: session } = useSession();
@@ -96,18 +95,7 @@ export function ManagerSessionsView() {
         <DocumentActions
           onShow={() => showSessionReport(row.id)}
           onPrint={() => printSessionReport(row.id)}
-          shareText={buildSessionShareText({
-            patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-            sessionNumber: row.sessionNumber,
-            totalSessions: row.treatmentPlan?.totalSessions,
-            date: row.scheduledAt || row.completedAt || row.createdAt,
-            physiotherapistName: (row.physiotherapist || row.completedByUser)
-              ? `${(row.physiotherapist || row.completedByUser).firstName} ${(row.physiotherapist || row.completedByUser).lastName}`
-              : undefined,
-            treatmentTypes: row.treatmentTypes,
-            notes: row.notes,
-            recommendations: row.recommendations,
-          })}
+          onShare={() => shareSessionReport(row.id, row.patient?.firstName, row.patient?.lastName)}
         />
       ),
     },

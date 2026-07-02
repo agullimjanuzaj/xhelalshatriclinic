@@ -18,8 +18,7 @@ import { CreateSessionDialog } from '@/components/sessions/create-session-dialog
 import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
-import { showSessionReport, printSessionReport } from '@/lib/invoice';
-import { buildSessionShareText } from '@/lib/share';
+import { showSessionReport, printSessionReport, shareSessionReport } from '@/lib/invoice';
 import { CheckCircle2, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -129,18 +128,7 @@ export function AdminSessionsView() {
           <DocumentActions
             onShow={() => showSessionReport(row.id)}
             onPrint={() => printSessionReport(row.id)}
-            shareText={buildSessionShareText({
-              patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-              sessionNumber: row.sessionNumber,
-              totalSessions: row.treatmentPlan?.totalSessions,
-              date: row.scheduledAt || row.completedAt || row.createdAt,
-              physiotherapistName: (row.physiotherapist || row.completedByUser)
-                ? `${(row.physiotherapist || row.completedByUser).firstName} ${(row.physiotherapist || row.completedByUser).lastName}`
-                : undefined,
-              treatmentTypes: row.treatmentTypes,
-              notes: row.notes,
-              recommendations: row.recommendations,
-            })}
+            onShare={() => shareSessionReport(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
           <div data-stop-row-click className="flex items-center gap-1">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditSession(row)} title="Ndrysho">

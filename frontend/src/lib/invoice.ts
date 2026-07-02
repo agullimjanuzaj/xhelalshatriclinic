@@ -1,5 +1,6 @@
 import { pdfApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { shareHtmlFile } from '@/lib/share';
 
 function friendlyError(err: any): string {
   if (err?.response?.status === 401 || /401|unauthorized/i.test(err?.message || '')) {
@@ -105,4 +106,24 @@ export async function getSessionReportHtml(sessionId: string): Promise<string> {
 
 export async function getTreatmentPlanHtml(planId: string): Promise<string> {
   return (await pdfApi.getTreatmentPlanHtml(planId)) as unknown as string;
+}
+
+export async function shareSessionReport(sessionId: string, firstName?: string, lastName?: string) {
+  try {
+    const html = (await pdfApi.getSessionReportHtml(sessionId)) as unknown as string;
+    const name = [firstName, lastName].filter(Boolean).join('_') || 'Pacient';
+    await shareHtmlFile(html, `Trajtim_${name}.html`, 'Raport Trajtimi');
+  } catch (err: any) {
+    toast.error(friendlyError(err));
+  }
+}
+
+export async function shareTreatmentPlan(planId: string, firstName?: string, lastName?: string) {
+  try {
+    const html = (await pdfApi.getTreatmentPlanHtml(planId)) as unknown as string;
+    const name = [firstName, lastName].filter(Boolean).join('_') || 'Pacient';
+    await shareHtmlFile(html, `Kontrolla_${name}.html`, 'Plani i Trajtimit');
+  } catch (err: any) {
+    toast.error(friendlyError(err));
+  }
 }

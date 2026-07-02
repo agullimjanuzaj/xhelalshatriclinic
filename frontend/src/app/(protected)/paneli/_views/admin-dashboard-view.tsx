@@ -38,14 +38,6 @@ export function AdminDashboardView() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Mirë se vini, Xhelal!</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Ja çfarë po ndodh sot në klinikë
-        </p>
-      </div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard

@@ -26,9 +26,9 @@ export function DashboardLayout({ children, className }: DashboardLayoutProps) {
           className={cn(
             'flex-1 overflow-y-auto overscroll-y-contain',
             'p-4 lg:p-6',
-            // Reserve space for the mobile bottom nav + iOS home-indicator.
-            // lg:pb-6 restores the desktop value (no bottom nav there).
-            'pb-[calc(3.5rem+2rem+env(safe-area-inset-bottom,0px))] lg:pb-6',
+            // Reserve space for the mobile bottom nav (CSS var fallback 72px) + iOS safe area + 20px breathing room.
+            // lg:pb-6 restores the desktop value (no bottom nav on lg+).
+            'pb-[calc(var(--mobile-nav-height,72px)+env(safe-area-inset-bottom,0px)+20px)] lg:pb-6',
             className,
           )}
         >

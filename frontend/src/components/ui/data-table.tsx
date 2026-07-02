@@ -34,6 +34,8 @@ interface DataTableProps<T> {
   // marked data-stop-row-click (action buttons, links) are ignored so a
   // "Fshi"/"Ndrysho" button doesn't also trigger navigation.
   onRowClick?: (row: T) => void;
+  // Optional per-row className (e.g. for assignment highlight on physio views).
+  rowClassName?: (row: T) => string | undefined;
 }
 
 export function DataTable<T extends object>({
@@ -47,6 +49,7 @@ export function DataTable<T extends object>({
   emptyMessage = 'Nuk ka të dhëna',
   className,
   onRowClick,
+  rowClassName,
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
@@ -106,7 +109,7 @@ export function DataTable<T extends object>({
             {data.map((row, i) => (
               <TableRow
                 key={(row as any).id ?? i}
-                className={cn('hover:bg-muted/30 transition-colors', onRowClick && 'cursor-pointer')}
+                className={cn('hover:bg-muted/30 transition-colors', onRowClick && 'cursor-pointer', rowClassName?.(row))}
                 onClick={(e) => {
                   if (!onRowClick) return;
                   if ((e.target as HTMLElement).closest('[data-stop-row-click]')) return;

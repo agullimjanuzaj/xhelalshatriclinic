@@ -108,43 +108,45 @@ export function ManagerReportsView() {
       <ClinicSettingsCard editable={false} />
 
       <Card>
-        <CardContent className="pt-4 flex flex-wrap items-end gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Muaji</label>
-            <Input type="month" value={f.month} onChange={(e) => f.setMonth(e.target.value)} className="w-40" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Data prej</label>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={f.fromDate} disabled={!!f.month} onChange={(e) => f.setFromDate(e.target.value)} className="w-40" />
-              {f.fromDate && !f.month && (
-                <button type="button" onClick={() => f.setFromDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
-              )}
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+            <div>
+              <label className="text-xs text-muted-foreground">Muaji</label>
+              <Input type="month" value={f.month} onChange={(e) => f.setMonth(e.target.value)} className="w-full sm:w-40" />
             </div>
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Data deri</label>
-            <div className="flex items-center gap-1">
-              <Input type="date" value={f.toDate} disabled={!!f.month} onChange={(e) => f.setToDate(e.target.value)} className="w-40" />
-              {f.toDate && !f.month && (
-                <button type="button" onClick={() => f.setToDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
-              )}
+            <div>
+              <label className="text-xs text-muted-foreground">Data prej</label>
+              <div className="flex items-center gap-1">
+                <Input type="date" value={f.fromDate} disabled={!!f.month} onChange={(e) => f.setFromDate(e.target.value)} className="w-full sm:w-40" />
+                {f.fromDate && !f.month && (
+                  <button type="button" onClick={() => f.setFromDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
+                )}
+              </div>
             </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Data deri</label>
+              <div className="flex items-center gap-1">
+                <Input type="date" value={f.toDate} disabled={!!f.month} onChange={(e) => f.setToDate(e.target.value)} className="w-full sm:w-40" />
+                {f.toDate && !f.month && (
+                  <button type="button" onClick={() => f.setToDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Përdoruesi</label>
+              <Select value={f.userId || ALL} onValueChange={(v) => f.setUserId(v === ALL ? '' : v)}>
+                <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Të gjithë" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Të gjithë</SelectItem>
+                  {users.map((u: any) => (
+                    <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={f.apply} className="col-span-2 w-full sm:w-auto gap-2 gradient-teal text-white border-0"><Filter size={14} />Filtro</Button>
+            <Button variant="outline" onClick={f.clear} className="col-span-2 w-full sm:w-auto gap-2"><FilterX size={14} />Pastro filtrat</Button>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Përdoruesi</label>
-            <Select value={f.userId || ALL} onValueChange={(v) => f.setUserId(v === ALL ? '' : v)}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="Të gjithë" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Të gjithë</SelectItem>
-                {users.map((u: any) => (
-                  <SelectItem key={u.id} value={u.id}>{u.firstName} {u.lastName}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={f.apply} className="gap-2 gradient-teal text-white border-0"><Filter size={14} />Filtro</Button>
-          <Button variant="outline" onClick={f.clear} className="gap-2"><FilterX size={14} />Pastro filtrat</Button>
         </CardContent>
       </Card>
 

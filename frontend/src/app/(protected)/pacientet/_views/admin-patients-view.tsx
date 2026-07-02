@@ -143,12 +143,12 @@ export function AdminPatientsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Pacientët</h1>
           <p className="text-sm text-muted-foreground">{meta?.total ?? 0} pacientë gjithsej</p>
         </div>
-        <Button onClick={() => { setEditPatient(null); setShowForm(true); }} className="gap-2 gradient-teal text-white border-0">
+        <Button onClick={() => { setEditPatient(null); setShowForm(true); }} className="gap-2 gradient-teal text-white border-0 w-full sm:w-auto">
           <Plus size={16} />Pacient i ri
         </Button>
       </div>

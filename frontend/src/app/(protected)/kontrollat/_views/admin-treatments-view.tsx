@@ -15,8 +15,7 @@ import { getTreatmentTypeLabel } from '@/lib/utils';
 import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
 import { CreatePlanDialog } from '@/components/treatment-plans/create-plan-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showTreatmentPlan, printTreatmentPlan } from '@/lib/invoice';
-import { buildTreatmentShareText } from '@/lib/share';
+import { showTreatmentPlan, printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
 import { toast } from 'sonner';
 
 export function AdminTreatmentsView() {
@@ -107,16 +106,7 @@ export function AdminTreatmentsView() {
           <DocumentActions
             onShow={() => showTreatmentPlan(row.id)}
             onPrint={() => printTreatmentPlan(row.id)}
-            shareText={buildTreatmentShareText({
-              patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-              diagnosis: row.diagnosis,
-              treatmentTypes: row.treatmentTypes,
-              totalSessions: row.totalSessions,
-              completedSessions: row.completedSessions,
-              totalTreatmentValue: Number(row.totalAmount),
-              totalPaidAmount: Number(row.amountPaid),
-              currentDebt: Math.max(0, Number(row.totalAmount) - Number(row.amountPaid)),
-            })}
+            onShare={() => shareTreatmentPlan(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
           <div data-stop-row-click className="flex items-center gap-1">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditPlan(row)} title="Ndrysho">
@@ -133,12 +123,12 @@ export function AdminTreatmentsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold">Kontrollat</h1>
           <p className="text-sm text-muted-foreground">Të gjitha kontrollat e klinikës</p>
         </div>
-        <Button onClick={() => setShowPlanDialog(true)} className="gap-2 gradient-teal text-white border-0">
+        <Button onClick={() => setShowPlanDialog(true)} className="gap-2 gradient-teal text-white border-0 w-full sm:w-auto">
           <Plus size={16} />Kontrollë e re
         </Button>
       </div>

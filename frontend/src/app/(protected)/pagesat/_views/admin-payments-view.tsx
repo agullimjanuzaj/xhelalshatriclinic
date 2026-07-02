@@ -132,12 +132,12 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Pagesat</h1>
           <p className="text-sm text-muted-foreground">{meta?.total ?? 0} pagesa gjithsej</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="gap-2 gradient-teal text-white border-0">
+        <Button onClick={() => setShowForm(true)} className="gap-2 gradient-teal text-white border-0 w-full sm:w-auto">
           <Plus size={16} />Pagesë e re
         </Button>
       </div>

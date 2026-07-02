@@ -1,5 +1,32 @@
 import { toast } from 'sonner';
 
+// Shares an HTML file via the OS share sheet (Web Share API Level 2).
+// On browsers/devices that don't support file sharing, falls back to
+// triggering a download so the user still gets the document.
+export async function shareHtmlFile(html: string, filename: string, title: string) {
+  const blob = new Blob([html], { type: 'text/html' });
+  const file = new File([blob], filename, { type: 'text/html' });
+
+  if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title });
+      return;
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      // fall through to download fallback
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // Generic share — lets the user pick whichever app they want (WhatsApp,
 // Viber, Messages, email, ...) via the OS share sheet on mobile/supporting
 // browsers, falling back to a clipboard copy everywhere else. Never tied to

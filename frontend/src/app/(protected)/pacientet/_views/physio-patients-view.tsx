@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { patientsApi } from '@/lib/api';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,11 @@ import { formatDate, getGenderLabel } from '@/lib/utils';
 import { Search, Phone } from 'lucide-react';
 import { getPatientDetailPath } from '@/lib/routes';
 
+const ASSIGNED_ROW = 'border-l-[3px] border-l-teal-500 bg-teal-50/40 dark:bg-teal-950/20';
+
 export function PhysioPatientsView() {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -76,7 +81,6 @@ export function PhysioPatientsView() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">Pacientët</h1>
-        <p className="text-sm text-muted-foreground">Pacientët e caktuar për ju</p>
       </div>
 
       <div className="relative max-w-xs">
@@ -97,6 +101,7 @@ export function PhysioPatientsView() {
         onPageChange={setPage}
         emptyMessage="Nuk ka pacientë"
         onRowClick={(row: any) => router.push(getPatientDetailPath('PHYSIOTHERAPIST', row.id))}
+        rowClassName={(row: any) => row.hasMyPlan ? ASSIGNED_ROW : undefined}
       />
     </div>
   );

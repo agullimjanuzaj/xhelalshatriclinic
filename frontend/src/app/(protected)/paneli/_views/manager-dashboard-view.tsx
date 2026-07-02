@@ -34,15 +34,10 @@ export function ManagerDashboardView() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Paneli i Menaxherit</h1>
-          <p className="text-sm text-muted-foreground">Dega: <strong>{branchName}</strong></p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild className="gap-2 gradient-teal text-white border-0">
-            <Link href={ROUTES.patientsNew}><Plus size={16} />Pacient i ri</Link>
-          </Button>
-        </div>
+        <p className="text-sm text-muted-foreground">Dega: <strong>{branchName}</strong></p>
+        <Button asChild className="gap-2 gradient-teal text-white border-0">
+          <Link href={ROUTES.patientsNew}><Plus size={16} />Pacient i ri</Link>
+        </Button>
       </div>
 
       {/* Stats */}
@@ -92,7 +87,6 @@ export function ManagerDashboardView() {
               { label: 'Regjistro pagesë', href: ROUTES.payments, color: 'gradient-blue' },
               { label: 'Kontrollat', href: ROUTES.treatments, color: 'gradient-emerald' },
               { label: 'Trajtimet', href: ROUTES.sessions, color: 'gradient-blue' },
-              { label: 'Raportet', href: ROUTES.reports, color: 'gradient-amber' },
             ].map((action) => (
               <Button key={action.href} asChild variant="outline" className="h-16 flex-col gap-1 text-sm">
                 <Link href={action.href}>{action.label}</Link>

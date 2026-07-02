@@ -24,8 +24,7 @@ import { TreatmentTypesChecklist } from '@/components/sessions/treatment-types-c
 import { GenerateRecommendationButton } from '@/components/sessions/generate-recommendation-button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showSessionReport, printSessionReport } from '@/lib/invoice';
-import { buildSessionShareText } from '@/lib/share';
+import { showSessionReport, printSessionReport, shareSessionReport } from '@/lib/invoice';
 
 const completeSchema = z.object({
   notes: z.string().optional(),
@@ -36,8 +35,11 @@ const completeSchema = z.object({
 type CompleteFormData = z.infer<typeof completeSchema>;
 const completeDefaults: CompleteFormData = { notes: '', treatmentTypes: [], recommendations: '' };
 
+const ASSIGNED_ROW = 'border-l-[3px] border-l-teal-500 bg-teal-50/40 dark:bg-teal-950/20';
+
 export function PhysioSessionsView() {
   const { data: session } = useSession();
+  const userId = session?.user?.id;
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -144,18 +146,7 @@ export function PhysioSessionsView() {
           <DocumentActions
             onShow={() => showSessionReport(row.id)}
             onPrint={() => printSessionReport(row.id)}
-            shareText={buildSessionShareText({
-              patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-              sessionNumber: row.sessionNumber,
-              totalSessions: row.treatmentPlan?.totalSessions,
-              date: row.scheduledAt || row.completedAt || row.createdAt,
-              physiotherapistName: (row.physiotherapist || row.completedByUser)
-                ? `${(row.physiotherapist || row.completedByUser).firstName} ${(row.physiotherapist || row.completedByUser).lastName}`
-                : undefined,
-              treatmentTypes: row.treatmentTypes,
-              notes: row.notes,
-              recommendations: row.recommendations,
-            })}
+            onShare={() => shareSessionReport(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditSession(row)} title="Ndrysho">
             <Pencil size={14} />
@@ -239,6 +230,7 @@ export function PhysioSessionsView() {
         pagination={meta}
         onPageChange={setPage}
         emptyMessage="Nuk ka trajtime"
+        rowClassName={(row: any) => row.physiotherapistId === userId ? ASSIGNED_ROW : undefined}
       />
 
       <Dialog open={!!completeId} onOpenChange={(open) => !open && setCompleteId(null)}>

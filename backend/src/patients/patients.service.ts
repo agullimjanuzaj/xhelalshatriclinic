@@ -90,6 +90,22 @@ export class PatientsService {
       this.prisma.patient.count({ where }),
     ]);
 
+    // For physiotherapists: flag which patients have a plan assigned to them
+    // so the frontend can highlight those rows visually.
+    if (user.role === Role.PHYSIOTHERAPIST && patients.length) {
+      const assignedPlanRows = await this.prisma.treatmentPlan.findMany({
+        where: {
+          patientId: { in: patients.map((p: any) => p.id) },
+          assignedPhysiotherapistId: user.id,
+          deletedAt: null,
+        },
+        select: { patientId: true },
+      });
+      const assignedSet = new Set(assignedPlanRows.map((r: any) => r.patientId));
+      const enriched = patients.map((p: any) => ({ ...p, hasMyPlan: assignedSet.has(p.id) }));
+      return { data: enriched, meta: buildPaginationMeta(total, page, limit) };
+    }
+
     return { data: patients, meta: buildPaginationMeta(total, page, limit) };
   }
 
