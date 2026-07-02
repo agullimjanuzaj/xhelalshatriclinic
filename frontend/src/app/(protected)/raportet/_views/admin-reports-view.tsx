@@ -9,13 +9,12 @@ import { DataTable } from '@/components/ui/data-table';
 import { PaymentBadge } from '@/components/ui/payment-badge';
 import { StatsCard } from '@/components/ui/stats-card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency, formatCount } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter } from 'lucide-react';
-import { ClearableDateInput } from '@/components/ui/clearable-date-input';
+import { ClearableDateInput, ClearableMonthInput } from '@/components/ui/clearable-date-input';
 import { ClinicSettingsCard } from '@/components/reports/clinic-settings-card';
 import { BonusConfigCard } from '@/components/reports/bonus-config-card';
 
@@ -141,7 +140,7 @@ export function AdminReportsView() {
           <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
             <div>
               <label className="text-xs text-muted-foreground">Muaji</label>
-              <Input type="month" value={f.month} onChange={(e) => f.setMonth(e.target.value)} className="w-full sm:w-40" />
+              <ClearableMonthInput value={f.month} onChange={f.setMonth} onClear={() => f.setMonth('')} className="w-full sm:w-40" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Data prej</label>

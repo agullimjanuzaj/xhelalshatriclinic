@@ -9,7 +9,7 @@ import { DataTable, Column } from '@/components/ui/data-table';
 import { SessionBadge } from '@/components/ui/session-badge';
 import { StatsCard } from '@/components/ui/stats-card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { ClearableMonthInput } from '@/components/ui/clearable-date-input';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Activity, ClipboardList, CalendarCheck, Filter, FilterX, Coins } from 'lucide-react';
@@ -75,7 +75,7 @@ export function PhysioReportsView() {
           <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
             <div>
               <label className="text-xs text-muted-foreground">Muaji</label>
-              <Input type="month" value={f.month} onChange={(e) => f.setMonth(e.target.value)} className="w-full sm:w-40" />
+              <ClearableMonthInput value={f.month} onChange={f.setMonth} onClear={() => f.setMonth('')} className="w-full sm:w-40" />
             </div>
             <Button onClick={f.apply} className="col-span-2 w-full sm:w-auto gap-2 gradient-teal text-white border-0"><Filter size={14} />Filtro</Button>
             <Button variant="outline" onClick={f.clear} className="col-span-2 w-full sm:w-auto gap-2"><FilterX size={14} />Pastro filtrat</Button>

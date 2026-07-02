@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { X } from 'lucide-react';
 
-interface ClearableDateInputProps {
+export interface ClearableDateInputProps {
   value: string;
   onChange: (value: string) => void;
   onClear: () => void;
@@ -14,42 +14,62 @@ interface ClearableDateInputProps {
   className?: string;
 }
 
-// X sits OUTSIDE the <input> as a flex sibling — no absolute positioning,
-// no padding-right tricks that clip the year on narrow screens. The input
-// always renders full-width text; the button area is reserved at all times
-// (visibility:hidden when empty) to prevent layout shift on clear.
-export function ClearableDateInput({
+// Shared implementation for date and month native inputs.
+// - appearance-none: removes iOS/Android browser chrome that makes these
+//   inputs taller than regular text inputs.
+// - h-10: fixed height to match Select / text Input on all platforms.
+// - When a value is set: hides the native calendar/chevron indicator via
+//   CSS pseudo-element (WebKit) and shows an X button absolutely positioned
+//   at the right edge. pr-[28px] keeps the date text clear of the X button.
+// - X is type="button" with stopPropagation so tapping it on iOS clears the
+//   value without also triggering the native date picker.
+function ClearableNativeInput({
   value,
   onChange,
   onClear,
+  type,
   min,
   max,
   disabled,
   className,
-}: ClearableDateInputProps) {
+}: ClearableDateInputProps & { type: 'date' | 'month' }) {
   const showClear = !!value && !disabled;
   return (
-    <div className={cn('flex items-center gap-1', className)}>
+    <div className={cn('relative', className)}>
       <Input
-        type="date"
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         min={min}
         max={max}
         disabled={disabled}
-        className="flex-1 min-w-0 w-full"
+        className={cn(
+          'h-10 w-full min-w-0 appearance-none',
+          showClear && [
+            'pr-[28px]',
+            '[&::-webkit-calendar-picker-indicator]:opacity-0',
+            '[&::-webkit-calendar-picker-indicator]:pointer-events-none',
+          ],
+        )}
       />
-      <button
-        type="button"
-        onClick={showClear ? onClear : undefined}
-        aria-label="Pastro datën"
-        aria-hidden={!showClear}
-        tabIndex={showClear ? 0 : -1}
-        style={{ visibility: showClear ? 'visible' : 'hidden' }}
-        className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <X size={16} />
-      </button>
+      {showClear && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClear(); }}
+          aria-label="Pastro"
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <X size={15} />
+        </button>
+      )}
     </div>
   );
+}
+
+export function ClearableDateInput(props: ClearableDateInputProps) {
+  return <ClearableNativeInput {...props} type="date" />;
+}
+
+export function ClearableMonthInput(props: ClearableDateInputProps) {
+  return <ClearableNativeInput {...props} type="month" />;
 }
