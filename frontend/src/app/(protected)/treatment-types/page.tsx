@@ -127,12 +127,12 @@ export default function TreatmentTypesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold">Llojet e Trajtimeve</h1>
           <p className="text-sm text-muted-foreground">Menaxho llojet e trajtimit të disponueshme në klinikë</p>
         </div>
-        <Button onClick={openCreate} className="gradient-teal text-white border-0 gap-2">
+        <Button onClick={openCreate} className="gradient-teal text-white border-0 gap-2 w-full sm:w-auto">
           <Plus size={16} /> Shto lloj trajtimi
         </Button>
       </div>

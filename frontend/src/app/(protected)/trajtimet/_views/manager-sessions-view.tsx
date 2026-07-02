@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhysiotherapistCombobox } from '@/components/ui/physiotherapist-combobox';
 import { formatDate } from '@/lib/utils';
-import { Calendar, CheckCircle2, CreditCard, X } from 'lucide-react';
+import { Calendar, CheckCircle2, CreditCard } from 'lucide-react';
+import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { showSessionReport, printSessionReport, shareSessionReport } from '@/lib/invoice';
@@ -122,39 +123,23 @@ export function ManagerSessionsView() {
         <div className="flex gap-2 w-full md:w-auto">
           <div className="flex-1 md:flex-none">
             <label className="text-xs text-muted-foreground block mb-1">Prej</label>
-            <div className="flex items-center gap-1">
-              <Input
-                type="date"
-                value={dateFrom}
-                max={dateTo || undefined}
-                onChange={(e) => setDateParam('dateFrom', e.target.value)}
-                className="w-full md:w-36"
-              />
-              {dateFrom && (
-                <button type="button" title="Pastro" onClick={() => setDateParam('dateFrom', '')}
-                  className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted">
-                  <X size={13} />
-                </button>
-              )}
-            </div>
+            <ClearableDateInput
+              value={dateFrom}
+              onChange={(v) => setDateParam('dateFrom', v)}
+              onClear={() => setDateParam('dateFrom', '')}
+              max={dateTo || undefined}
+              className="w-full md:w-36"
+            />
           </div>
           <div className="flex-1 md:flex-none">
             <label className="text-xs text-muted-foreground block mb-1">Deri</label>
-            <div className="flex items-center gap-1">
-              <Input
-                type="date"
-                value={dateTo}
-                min={dateFrom || undefined}
-                onChange={(e) => setDateParam('dateTo', e.target.value)}
-                className="w-full md:w-36"
-              />
-              {dateTo && (
-                <button type="button" title="Pastro" onClick={() => setDateParam('dateTo', '')}
-                  className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted">
-                  <X size={13} />
-                </button>
-              )}
-            </div>
+            <ClearableDateInput
+              value={dateTo}
+              onChange={(v) => setDateParam('dateTo', v)}
+              onClear={() => setDateParam('dateTo', '')}
+              min={dateFrom || undefined}
+              className="w-full md:w-36"
+            />
           </div>
         </div>
       </div>

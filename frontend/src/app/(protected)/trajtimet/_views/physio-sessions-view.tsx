@@ -17,7 +17,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Textarea } from '@/components/ui/textarea';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
-import { CheckCircle, CheckCircle2, Calendar, Loader2, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { CheckCircle, CheckCircle2, Calendar, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { CreateSessionDialog } from '@/components/sessions/create-session-dialog';
 import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
 import { TreatmentTypesChecklist } from '@/components/sessions/treatment-types-checklist';
@@ -177,39 +178,23 @@ export function PhysioSessionsView() {
       <div className="flex gap-2 w-full sm:w-auto">
         <div className="flex-1 sm:flex-none">
           <label className="text-xs text-muted-foreground block mb-1">Prej</label>
-          <div className="flex items-center gap-1">
-            <Input
-              type="date"
-              value={dateFrom}
-              max={dateTo || undefined}
-              onChange={(e) => setDateParam('dateFrom', e.target.value)}
-              className="w-full sm:w-36"
-            />
-            {dateFrom && (
-              <button type="button" title="Pastro" onClick={() => setDateParam('dateFrom', '')}
-                className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted">
-                <X size={13} />
-              </button>
-            )}
-          </div>
+          <ClearableDateInput
+            value={dateFrom}
+            onChange={(v) => setDateParam('dateFrom', v)}
+            onClear={() => setDateParam('dateFrom', '')}
+            max={dateTo || undefined}
+            className="w-full sm:w-36"
+          />
         </div>
         <div className="flex-1 sm:flex-none">
           <label className="text-xs text-muted-foreground block mb-1">Deri</label>
-          <div className="flex items-center gap-1">
-            <Input
-              type="date"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(e) => setDateParam('dateTo', e.target.value)}
-              className="w-full sm:w-36"
-            />
-            {dateTo && (
-              <button type="button" title="Pastro" onClick={() => setDateParam('dateTo', '')}
-                className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted">
-                <X size={13} />
-              </button>
-            )}
-          </div>
+          <ClearableDateInput
+            value={dateTo}
+            onChange={(v) => setDateParam('dateTo', v)}
+            onClear={() => setDateParam('dateTo', '')}
+            min={dateFrom || undefined}
+            className="w-full sm:w-36"
+          />
         </div>
       </div>
 

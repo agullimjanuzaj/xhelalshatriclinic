@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatCurrency, formatCount } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter, X } from 'lucide-react';
+import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter } from 'lucide-react';
+import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { ClinicSettingsCard } from '@/components/reports/clinic-settings-card';
 import { BonusConfigCard } from '@/components/reports/bonus-config-card';
 
@@ -144,21 +145,11 @@ export function AdminReportsView() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Data prej</label>
-              <div className="flex items-center gap-1">
-                <Input type="date" value={f.fromDate} disabled={!!f.month} onChange={(e) => f.setFromDate(e.target.value)} className="w-full sm:w-40" />
-                {f.fromDate && !f.month && (
-                  <button type="button" onClick={() => f.setFromDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
-                )}
-              </div>
+              <ClearableDateInput value={f.fromDate} onChange={f.setFromDate} onClear={() => f.setFromDate('')} disabled={!!f.month} className="w-full sm:w-40" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Data deri</label>
-              <div className="flex items-center gap-1">
-                <Input type="date" value={f.toDate} disabled={!!f.month} onChange={(e) => f.setToDate(e.target.value)} className="w-full sm:w-40" />
-                {f.toDate && !f.month && (
-                  <button type="button" onClick={() => f.setToDate('')} className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"><X size={13} /></button>
-                )}
-              </div>
+              <ClearableDateInput value={f.toDate} onChange={f.setToDate} onClear={() => f.setToDate('')} disabled={!!f.month} className="w-full sm:w-40" />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Përdoruesi</label>
