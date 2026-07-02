@@ -268,9 +268,13 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
             <FormField control={form.control} name="assignedPhysiotherapistId" render={({ field }) => (
               <FormItem>
                 <FormLabel>Fizioterapeuti</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Zgjidh fizioterapeutin" /></SelectTrigger></FormControl>
+                <Select
+                  onValueChange={(v) => field.onChange(v === '_none_' ? '' : v)}
+                  value={field.value || '_none_'}
+                >
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent>
+                    <SelectItem value="_none_">Zgjidh fizioterapeutin</SelectItem>
                     {physios.map((p: any) => (
                       <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
                     ))}
