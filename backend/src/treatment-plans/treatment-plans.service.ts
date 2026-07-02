@@ -22,15 +22,21 @@ export class TreatmentPlansService {
     return { notes: generateTreatmentPlanNotes(diagnosis, treatmentTypes || [], totalSessions, existingNotes, complaints, selectedDiagnoses) };
   }
 
-  async findAll(dto: PaginationDto & { patientId?: string; branchId?: string }, user: any) {
+  async findAll(dto: PaginationDto & { patientId?: string; branchId?: string; dateFrom?: string; dateTo?: string }, user: any) {
     const page = Number(dto.page) || 1;
     const limit = Number(dto.limit) || 24;
-    const { search, patientId, branchId } = dto;
+    const { search, patientId, branchId, dateFrom, dateTo } = dto;
     const skip = (page - 1) * limit;
 
     const where: any = { deletedAt: null };
     const and: any[] = [];
     if (patientId) where.patientId = patientId;
+    if (dateFrom || dateTo) {
+      const createdAtFilter: any = {};
+      if (dateFrom) createdAtFilter.gte = new Date(dateFrom);
+      if (dateTo) createdAtFilter.lte = new Date(`${dateTo}T23:59:59`);
+      where.createdAt = createdAtFilter;
+    }
     if (search) {
       and.push({
         OR: [

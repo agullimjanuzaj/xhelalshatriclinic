@@ -48,7 +48,7 @@ export function PhysioDashboardView() {
           value={stats?.todaySessions ?? 0}
           icon={Calendar}
           gradient="teal"
-          onClick={() => router.push(`${getSessionsPath(role)}?date=${todayStr}`)}
+          onClick={() => router.push(`${getSessionsPath(role)}?dateFrom=${todayStr}&dateTo=${todayStr}`)}
         />
         <StatsCard
           title="Trajtimet"

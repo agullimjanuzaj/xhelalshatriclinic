@@ -33,18 +33,25 @@ export function ClearableDateInput({
         min={min}
         max={max}
         disabled={disabled}
-        className="w-full"
-        style={showClear ? { paddingRight: '32px' } : undefined}
+        className={cn('w-full', showClear && '[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden')}
+        style={showClear ? { paddingRight: '36px' } : undefined}
       />
       {showClear && (
         <button
           type="button"
           onClick={onClear}
           aria-label="Pastro datën"
-          style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px' }}
+          style={{
+            position: 'absolute',
+            right: '4px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '32px',
+            height: '32px',
+          }}
           className="flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded"
         >
-          <X size={13} />
+          <X size={16} />
         </button>
       )}
     </div>

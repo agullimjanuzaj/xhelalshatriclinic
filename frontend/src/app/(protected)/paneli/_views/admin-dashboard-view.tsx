@@ -54,7 +54,7 @@ export function AdminDashboardView() {
           description={`${overview.completedSessions ?? 0} të kompletuara gjithsej`}
           icon={Calendar}
           gradient="blue"
-          onClick={() => router.push(`${getSessionsPath()}?date=${new Date().toISOString().slice(0, 10)}`)}
+          onClick={() => { const d = new Date().toISOString().slice(0, 10); router.push(`${getSessionsPath()}?dateFrom=${d}&dateTo=${d}`); }}
         />
         <StatsCard
           title="Kontrollat totale"

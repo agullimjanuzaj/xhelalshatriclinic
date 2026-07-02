@@ -21,7 +21,7 @@ export class TreatmentPlansController {
   @Roles(Role.ADMIN, Role.MANAGER, Role.PHYSIOTHERAPIST)
   @ApiOperation({ summary: 'Listo planet e trajtimit' })
   findAll(
-    @Query() dto: PaginationDto & { patientId?: string; branchId?: string },
+    @Query() dto: PaginationDto & { patientId?: string; branchId?: string; dateFrom?: string; dateTo?: string },
     @CurrentUser() user: any,
   ) {
     return this.service.findAll(dto, user);

@@ -46,12 +46,12 @@ export class DashboardService {
       this.prisma.session.count({ where: sessionWhere }),
       this.prisma.session.count({ where: { ...sessionWhere, status: 'COMPLETED' } }),
       this.prisma.session.count({
-        where: { ...sessionWhere, scheduledAt: { gte: today, lt: tomorrow } },
+        where: { ...sessionWhere, completedAt: { gte: today, lt: tomorrow } },
       }),
       this.prisma.session.count({
-        where: { ...sessionWhere, scheduledAt: { gte: startOfMonth } },
+        where: { ...sessionWhere, completedAt: { gte: startOfMonth } },
       }),
-      this.prisma.treatment.count({ where: { deletedAt: null } }),
+      this.prisma.treatmentPlan.count({ where: { deletedAt: null, ...(branchId ? { branchId } : {}) } }),
       this.prisma.payment.aggregate({ where: { ...paymentWhere, status: 'PAID' }, _sum: { amount: true } }),
       this.prisma.payment.aggregate({
         where: { ...paymentWhere, status: 'PAID', paidAt: { gte: startOfMonth } },
@@ -161,8 +161,8 @@ export class DashboardService {
       recentPatients,
     ] = await Promise.all([
       this.prisma.patient.count({ where: { branchId, deletedAt: null } }),
-      this.prisma.session.count({ where: { branchId, scheduledAt: { gte: today, lt: tomorrow }, deletedAt: null } }),
-      this.prisma.session.count({ where: { branchId, scheduledAt: { gte: startOfMonth }, deletedAt: null } }),
+      this.prisma.session.count({ where: { branchId, completedAt: { gte: today, lt: tomorrow }, deletedAt: null } }),
+      this.prisma.session.count({ where: { branchId, completedAt: { gte: startOfMonth }, deletedAt: null } }),
       this.prisma.payment.aggregate({ where: { branchId, status: 'PAID', paidAt: { gte: startOfMonth }, deletedAt: null }, _sum: { amount: true } }),
       this.prisma.treatmentPlan.count({ where: { patient: { branchId }, paymentStatus: { not: 'PAID' }, deletedAt: null } }),
       this.prisma.patient.findMany({ where: { branchId, deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 5 }),
@@ -203,8 +203,8 @@ export class DashboardService {
       this.prisma.session.count({ where: { ...mine, deletedAt: null } }),
       this.prisma.session.count({ where: { ...mine, completedAt: { gte: today, lt: tomorrow }, deletedAt: null } }),
       this.prisma.session.count({ where: { ...mine, completedAt: { gte: startOfMonth }, deletedAt: null } }),
-      this.prisma.treatment.count({ where: { physiotherapistId: userId, deletedAt: null } }),
-      this.prisma.treatment.count({ where: { physiotherapistId: userId, createdAt: { gte: startOfMonth }, deletedAt: null } }),
+      this.prisma.treatmentPlan.count({ where: { assignedPhysiotherapistId: userId, deletedAt: null } }),
+      this.prisma.treatmentPlan.count({ where: { assignedPhysiotherapistId: userId, createdAt: { gte: startOfMonth }, deletedAt: null } }),
       this.prisma.session.count({ where: { ...mine, status: 'COMPLETED', deletedAt: null } }),
     ]);
 

@@ -54,7 +54,7 @@ export function ManagerDashboardView() {
           value={stats?.todaySessions ?? 0}
           icon={Calendar}
           gradient="blue"
-          onClick={() => router.push(`${getSessionsPath(role)}?date=${todayStr}`)}
+          onClick={() => router.push(`${getSessionsPath(role)}?dateFrom=${todayStr}&dateTo=${todayStr}`)}
         />
         <StatsCard
           title="Pagesat"
