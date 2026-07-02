@@ -20,8 +20,8 @@ const STATUS_LABELS: Record<string, string> = {
 const APP_NAME = 'Xhelal Shatri Clinic';
 const BRANCH_PRINT_NAMES: Record<string, string> = {
   Istog: 'Fiziomed',
-  Prishtinë: 'Fiziomedica',
-  Pejë: 'Fiziomed',
+  Pejë: 'Biohit',
+  Prishtinë: 'Kiromed',
 };
 function getBranchPrintName(branch: { city?: string | null } | null | undefined): string {
   const city = branch?.city;

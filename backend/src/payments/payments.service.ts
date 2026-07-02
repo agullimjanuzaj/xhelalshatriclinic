@@ -398,9 +398,9 @@ export class PaymentsService {
   private async generateInvoiceNumber(): Promise<string> {
     const year = dayjs().year();
     const count = await this.prisma.payment.count({
-      where: { invoiceNumber: { startsWith: `INV-${year}` } },
+      where: { invoiceNumber: { startsWith: `FAT-${year}` } },
     });
-    return `INV-${year}-${String(count + 1).padStart(4, '0')}`;
+    return `FAT-${year}-${String(count + 1).padStart(4, '0')}`;
   }
 
   private async notifyPayment(payment: any, user: any) {

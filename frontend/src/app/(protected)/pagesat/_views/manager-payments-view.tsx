@@ -10,13 +10,12 @@ import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { PaymentBadge } from '@/components/ui/payment-badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { formatCurrency, formatDate, computeCurrentDebt } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { Plus, Download, Printer, Share2, Pencil, Trash2 } from 'lucide-react';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { DebtsTable } from '@/components/payments/debts-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { shareText, buildInvoiceShareText } from '@/lib/share';
-import { downloadInvoicePdf, printInvoice } from '@/lib/invoice';
+import { downloadInvoicePdf, printInvoice, shareInvoiceHtml } from '@/lib/invoice';
 import { toast } from 'sonner';
 
 export function ManagerPaymentsView({ initialTab = 'payments' }: { initialTab?: 'payments' | 'debts' } = {}) {
@@ -91,14 +90,6 @@ export function ManagerPaymentsView({ initialTab = 'payments' }: { initialTab?: 
     {
       header: 'Veprimet',
       accessor: (row: any) => {
-        const shareTextValue = buildInvoiceShareText({
-          patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-          invoiceNumber: row.invoiceNumber,
-          amount: Number(row.amount),
-          branchName: row.branch?.name,
-          currentDebt: row.treatmentPlan ? computeCurrentDebt(row.treatmentPlan) : undefined,
-          paidAt: row.paidAt || row.createdAt,
-        });
         return (
           <div className="flex gap-1" data-stop-row-click>
             <Button variant="ghost" size="sm" title="Shkarko PDF" onClick={() => downloadInvoicePdf(row.id, row.invoiceNumber)}>
@@ -107,7 +98,7 @@ export function ManagerPaymentsView({ initialTab = 'payments' }: { initialTab?: 
             <Button variant="ghost" size="sm" title="Printo faturën" onClick={() => printInvoice(row.id)}>
               <Printer size={14} />
             </Button>
-            <Button variant="ghost" size="sm" title="Ndaj" onClick={() => shareText(shareTextValue)}>
+            <Button variant="ghost" size="sm" title="Ndaj" onClick={() => shareInvoiceHtml(row.id, row.patient?.firstName, row.patient?.lastName)}>
               <Share2 size={14} />
             </Button>
             <Button variant="ghost" size="sm" title="Ndrysho" onClick={() => setEditPayment(row)}>

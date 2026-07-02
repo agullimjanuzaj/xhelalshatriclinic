@@ -21,8 +21,8 @@ import { CreateSessionDialog } from '@/components/sessions/create-session-dialog
 import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { PatientFormDialog } from '@/components/patients/patient-form-dialog';
-import { downloadInvoicePdf, printInvoice } from '@/lib/invoice';
-import { shareText, buildInvoiceShareText } from '@/lib/share';
+import { downloadInvoicePdf, printInvoice, shareInvoiceHtml } from '@/lib/invoice';
+import { shareText } from '@/lib/share';
 import {
   formatDate, formatDateTime, formatCurrency, getGenderLabel, getTreatmentTypeLabel, formatActiveUntil,
 } from '@/lib/utils';
@@ -61,6 +61,7 @@ export function PatientDetailContent({ id }: { id: string }) {
   const tabParam = searchParams.get('tab');
   const initialTab = (tabParam && TAB_QUERY_PARAM_MAP[tabParam]) || tabParam || 'overview';
   const [activeTab, setActiveTab] = useState(initialTab);
+  const effectiveTab = isPhysio && ['payments', 'debts'].includes(activeTab) ? 'overview' : activeTab;
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -159,7 +160,9 @@ export function PatientDetailContent({ id }: { id: string }) {
     }
     lines.push('Nëse dhimbja rritet ose vëreni shqetësim të pazakontë, kontaktoni klinikën.');
     lines.push('');
-    lines.push('Faleminderit,\nXhelal Shatri Clinic');
+    const BRANCH_NAMES: Record<string, string> = { Istog: 'Fiziomed', Pejë: 'Biohit', Prishtinë: 'Kiromed' };
+    const clinicName = (patient.branch?.city && BRANCH_NAMES[patient.branch.city]) || 'Xhelal Shatri Clinic';
+    lines.push(`Faleminderit,\n${clinicName}`);
     setAdvice(lines.join('\n'));
   };
 
@@ -187,14 +190,6 @@ export function PatientDetailContent({ id }: { id: string }) {
   if (!patient) return <p className="text-muted-foreground">Pacienti nuk u gjet</p>;
 
   const f = patient.financials;
-  const invoiceShareText = (p: any) => buildInvoiceShareText({
-    patientName: `${patient.firstName} ${patient.lastName}`,
-    invoiceNumber: p.invoiceNumber,
-    amount: Number(p.amount),
-    branchName: patient.branch?.name,
-    currentDebt: f?.currentDebt,
-    paidAt: p.paidAt || p.createdAt,
-  });
 
   return (
     <div className="space-y-6">
@@ -234,11 +229,13 @@ export function PatientDetailContent({ id }: { id: string }) {
               )}
             </div>
 
+            {!isPhysio && (
             <div className="flex flex-col items-end gap-1">
               <p className="text-xs text-muted-foreground">Borxhi aktual</p>
               <p className={`text-2xl font-bold ${f?.currentDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(f?.currentDebt || 0)}</p>
               <p className="text-xs text-muted-foreground">Paguar deri tani: {formatCurrency(f?.totalPaidAmount || 0)}</p>
             </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
@@ -266,19 +263,20 @@ export function PatientDetailContent({ id }: { id: string }) {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={effectiveTab} onValueChange={handleTabChange}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="overview">Përmbledhje</TabsTrigger>
           <TabsTrigger value="treatments">Trajtimet</TabsTrigger>
           <TabsTrigger value="sessions">Seancat</TabsTrigger>
-          <TabsTrigger value="payments">Pagesat</TabsTrigger>
-          <TabsTrigger value="debts">Borxhet</TabsTrigger>
+          {!isPhysio && <TabsTrigger value="payments">Pagesat</TabsTrigger>}
+          {!isPhysio && <TabsTrigger value="debts">Borxhet</TabsTrigger>}
           <TabsTrigger value="advice">Këshilla</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="timeline">Historiku</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="space-y-4 mt-4">
+          {!isPhysio && (
           <Card>
             <CardHeader><CardTitle className="text-base">Përmbledhje financiare</CardTitle></CardHeader>
             <CardContent>
@@ -297,6 +295,7 @@ export function PatientDetailContent({ id }: { id: string }) {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {patient.notes && (
             <Card>
@@ -321,7 +320,7 @@ export function PatientDetailContent({ id }: { id: string }) {
                       Fizioterapeuti: {p.assignedPhysiotherapist ? `${p.assignedPhysiotherapist.firstName} ${p.assignedPhysiotherapist.lastName}` : 'Pa fizioterapeut të caktuar'}
                     </p>
                   </div>
-                  <PaymentBadge status={p.financials?.paymentStatus || p.paymentStatus} />
+                  {!isPhysio && <PaymentBadge status={p.financials?.paymentStatus || p.paymentStatus} />}
                 </div>
 
                 <div className="w-full">
@@ -334,6 +333,7 @@ export function PatientDetailContent({ id }: { id: string }) {
                   </div>
                 </div>
 
+                {!isPhysio && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                   <div><p className="text-muted-foreground text-xs">Çmimi/trajtim</p><p className="font-medium">{formatCurrency(p.sessionFee)}</p></div>
                   <div><p className="text-muted-foreground text-xs">Totali i kontrollës</p><p className="font-medium">{formatCurrency(p.financials?.totalTreatmentValue ?? p.totalAmount)}</p></div>
@@ -341,6 +341,7 @@ export function PatientDetailContent({ id }: { id: string }) {
                   <div><p className="text-muted-foreground text-xs">Paguar</p><p className="font-medium text-green-600">{formatCurrency(p.financials?.totalPaidAmount ?? p.amountPaid)}</p></div>
                   <div><p className="text-muted-foreground text-xs">Borxh aktual</p><p className="font-medium text-red-600">{formatCurrency(p.financials?.currentDebt || 0)}</p></div>
                 </div>
+                )}
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   {canCreateSession && (
@@ -430,7 +431,7 @@ export function PatientDetailContent({ id }: { id: string }) {
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => printInvoice(p.id)} title="Printo">
                         <Printer size={13} />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareText(invoiceShareText(p))} title="Ndaj">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => shareInvoiceHtml(p.id, patient.firstName, patient.lastName)} title="Ndaj">
                         <Share2 size={13} />
                       </Button>
                       {canManageMoney && (

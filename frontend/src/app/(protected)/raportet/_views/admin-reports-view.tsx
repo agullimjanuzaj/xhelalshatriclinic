@@ -112,7 +112,6 @@ export function AdminReportsView() {
   const sessionsByUserColumns = [
     { header: 'Përdoruesi', accessor: (r: any) => r.userName },
     { header: 'Seancat', accessor: (r: any) => r.sessions },
-    { header: 'Të ardhurat', accessor: (r: any) => formatCurrency(r.revenue) },
   ];
 
   const revenueByUserColumns = [
@@ -212,7 +211,7 @@ export function AdminReportsView() {
 
       {overview?.sessionsByUser?.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-sm">Seancat sipas përdoruesit (filtruar)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm">Seancat sipas përdoruesit</CardTitle></CardHeader>
           <CardContent>
             <DataTable columns={sessionsByUserColumns} data={overview.sessionsByUser} emptyMessage="Nuk ka të dhëna" />
           </CardContent>
@@ -276,7 +275,7 @@ export function AdminReportsView() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="period" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} width={45} tickFormatter={(v) => `${v}€`} />
-                    <Tooltip formatter={(v: any) => formatCurrency(v)} />
+                    <Tooltip formatter={(v: any) => [formatCurrency(v), 'Të ardhurat']} />
                     <Bar dataKey="revenue" fill="#0d9488" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -291,7 +290,7 @@ export function AdminReportsView() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="branchName" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} width={45} tickFormatter={(v) => `${v}€`} />
-                    <Tooltip formatter={(v: any) => formatCurrency(v)} />
+                    <Tooltip formatter={(v: any) => [formatCurrency(v), 'Të ardhurat']} />
                     <Bar dataKey="revenue" fill="#0891b2" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

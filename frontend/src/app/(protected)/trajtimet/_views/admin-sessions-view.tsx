@@ -150,7 +150,7 @@ export function AdminSessionsView() {
           <h1 className="text-xl font-bold">Trajtimet</h1>
           <p className="text-sm text-muted-foreground">Të gjitha trajtimet e klinikës</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2 gradient-teal text-white border-0 self-start sm:self-auto">
+        <Button onClick={() => setShowCreate(true)} className="gap-2 gradient-teal text-white border-0 w-full sm:w-auto">
           <Plus size={16} />Trajtim i ri
         </Button>
       </div>

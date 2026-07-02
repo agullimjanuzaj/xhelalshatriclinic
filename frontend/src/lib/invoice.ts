@@ -127,3 +127,13 @@ export async function shareTreatmentPlan(planId: string, firstName?: string, las
     toast.error(friendlyError(err));
   }
 }
+
+export async function shareInvoiceHtml(paymentId: string, firstName?: string, lastName?: string) {
+  try {
+    const html = (await pdfApi.getInvoiceHtml(paymentId)) as unknown as string;
+    const name = [firstName, lastName].filter(Boolean).join('_') || 'Pacient';
+    await shareHtmlFile(html, `Pagesa_${name}.html`, 'Faturë');
+  } catch (err: any) {
+    toast.error(friendlyError(err));
+  }
+}

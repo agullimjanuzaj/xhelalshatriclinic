@@ -168,7 +168,7 @@ export function PhysioSessionsView() {
           <h1 className="text-xl font-bold">Trajtimet e mia</h1>
           <p className="text-sm text-muted-foreground">Trajtimet e caktuara për ju</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2 gradient-teal text-white border-0 self-start sm:self-auto">
+        <Button onClick={() => setShowCreate(true)} className="gap-2 gradient-teal text-white border-0 w-full sm:w-auto">
           <Plus size={16} />Trajtim i ri
         </Button>
       </div>

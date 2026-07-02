@@ -11,12 +11,11 @@ import { Button } from '@/components/ui/button';
 import { PaymentBadge } from '@/components/ui/payment-badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { formatCurrency, formatDate, computeCurrentDebt } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { Plus, Download, Printer, Share2, Pencil, Trash2 } from 'lucide-react';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { DebtsTable } from '@/components/payments/debts-table';
-import { downloadInvoicePdf, printInvoice } from '@/lib/invoice';
-import { shareText, buildInvoiceShareText } from '@/lib/share';
+import { downloadInvoicePdf, printInvoice, shareInvoiceHtml } from '@/lib/invoice';
 import { toast } from 'sonner';
 
 export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'payments' | 'debts' } = {}) {
@@ -107,14 +106,7 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => shareText(buildInvoiceShareText({
-              patientName: `${row.patient?.firstName || ''} ${row.patient?.lastName || ''}`.trim(),
-              invoiceNumber: row.invoiceNumber,
-              amount: Number(row.amount),
-              branchName: row.branch?.name,
-              currentDebt: row.treatmentPlan ? computeCurrentDebt(row.treatmentPlan) : undefined,
-              paidAt: row.paidAt || row.createdAt,
-            }))}
+            onClick={() => shareInvoiceHtml(row.id, row.patient?.firstName, row.patient?.lastName)}
             title="Ndaj"
           >
             <Share2 size={14} />

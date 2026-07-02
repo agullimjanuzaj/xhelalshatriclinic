@@ -163,6 +163,17 @@ export class PatientsService {
       }
     }
 
+    // For PHYSIOTHERAPIST: return without financial data
+    if (user.role === Role.PHYSIOTHERAPIST) {
+      const plansForPhysio = patient.treatmentPlans.map((p: any) => ({
+        ...p,
+        sessionFee: undefined,
+        totalAmount: undefined,
+        amountPaid: undefined,
+      }));
+      return { ...patient, payments: [], treatmentPlans: plansForPhysio };
+    }
+
     // Aggregate financials across every plan, plus per-plan figures so the
     // patient page can show both an overall picture and a treatment-by-
     // treatment breakdown without the frontend re-deriving the math.
