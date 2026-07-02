@@ -106,7 +106,8 @@
       "Bash(grep -v \"//\\\\|node_modules\\\\|\\\\.spec\\\\.\")",
       "Bash(grep -v \"//\\\\|import\\\\|queryKey\\\\|queryFn\\\\|apiUrl\\\\|\\\\.id\\\\|\\\\.status\\\\|\\\\.count\\\\|\\\\.data\\\\|sessionsApi\\\\|useSession\\\\|getSession\\\\|setSession\\\\|authSession\\\\|Sessions\\\\|session=\\\\|sessionId\\\\|sessionNumber\\\\|sessionsCompleted\\\\|physio\\\\|treatmentPlanId\\\\|sessionsData\\\\|sessionsByDay\\\\|sessionsList\\\\|sessionsByPhysio\\\\|sessionsPhysioData\\\\|sessionsBranchData\\\\|sessionsApi\\\\|sessions-physio\\\\|sessions-manager\\\\|sessions'\\\\]\")",
       "Bash(grep -v \"//\\\\|import\\\\|queryKey\\\\|queryFn\\\\|apiUrl\\\\|sessionsApi\\\\|invalidate\\\\|useSession\\\\|getSession\\\\|next-auth\\\\|Queries\\\\|\\\\.spec\\\\.\")",
-      "Bash(grep -v \"//\\\\|import\")"
+      "Bash(grep -v \"//\\\\|import\")",
+      "Bash(node frontend/scripts/generate-notification-icons.mjs)"
     ]
   }
 }

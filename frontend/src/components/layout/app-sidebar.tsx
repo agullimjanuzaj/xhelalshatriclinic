@@ -44,7 +44,7 @@ export function AppSidebar() {
           'fixed left-0 z-50 w-64 flex-col bg-white dark:bg-gray-900 border-r border-border shadow-sm transition-transform duration-300',
           'flex',
           // Mobile: start below header (h-14) and end above bottom nav + safe area
-          'top-14 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]',
+          'top-14 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]',
           // Desktop: full height, static (not fixed)
           'lg:top-0 lg:bottom-0 lg:h-full lg:static lg:z-auto lg:shadow-none',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',

@@ -14,13 +14,16 @@ self.addEventListener('push', function (event) {
   }
 
   var title = payload.title || 'Xhelal Shatri Clinic';
+  var tag = payload.tag || 'default';
   var options = {
     body: payload.body || '',
-    icon: payload.icon || '/icons/icon-192x192.png',
-    badge: payload.badge || '/icons/icon-72x72.png',
-    data: { url: payload.url || '/paneli' },
-    tag: payload.tag || 'default',
+    icon: payload.icon || '/icons/notification-icon.png',
+    badge: payload.badge || '/icons/badge.png',
+    data: { url: payload.url || payload.click_action || '/paneli' },
+    tag: tag,
+    renotify: payload.renotify !== undefined ? payload.renotify : true,
     vibrate: [200, 100, 200],
+    requireInteraction: false,
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

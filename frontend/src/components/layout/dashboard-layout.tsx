@@ -28,7 +28,7 @@ export function DashboardLayout({ children, className }: DashboardLayoutProps) {
             'p-4 lg:p-6',
             // Reserve space for the mobile bottom nav + iOS home-indicator.
             // lg:pb-6 restores the desktop value (no bottom nav there).
-            'pb-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:pb-6',
+            'pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] lg:pb-6',
             className,
           )}
         >

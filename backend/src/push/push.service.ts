@@ -10,6 +10,7 @@ export interface PushPayload {
   badge?: string;
   url?: string;
   tag?: string;
+  renotify?: boolean;
 }
 
 // Infer a rough platform from the User-Agent string — used only for
@@ -122,10 +123,11 @@ export class PushService {
     const notif = {
       title: payload.title,
       body: payload.body,
-      icon: payload.icon || '/icons/icon-192x192.png',
-      badge: payload.badge || '/icons/icon-72x72.png',
+      icon: payload.icon || '/icons/notification-icon.png',
+      badge: payload.badge || '/icons/badge.png',
       url: payload.url || '/',
       tag: payload.tag || 'notification',
+      renotify: payload.renotify ?? true,
     };
 
     const results = await Promise.allSettled(
