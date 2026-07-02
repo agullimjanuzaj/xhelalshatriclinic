@@ -20,7 +20,8 @@ export interface ClearableDateInputProps {
 // - h-10: fixed height to match Select / text Input on all platforms.
 // - When a value is set: hides the native calendar/chevron indicator via
 //   CSS pseudo-element (WebKit) and shows an X button absolutely positioned
-//   at the right edge. pr-[28px] keeps the date text clear of the X button.
+//   at the right edge. pr-6 (24px) keeps the date text clear of the X button
+//   (button is right-1 w-5 = spans [4,24]px from right, matching the padding).
 // - X is type="button" with stopPropagation so tapping it on iOS clears the
 //   value without also triggering the native date picker.
 function ClearableNativeInput({
@@ -46,7 +47,7 @@ function ClearableNativeInput({
         className={cn(
           'h-10 w-full min-w-0 appearance-none',
           showClear && [
-            'pr-[28px]',
+            'pr-6',
             '[&::-webkit-calendar-picker-indicator]:opacity-0',
             '[&::-webkit-calendar-picker-indicator]:pointer-events-none',
           ],
@@ -57,7 +58,7 @@ function ClearableNativeInput({
           type="button"
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClear(); }}
           aria-label="Pastro"
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
+          className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
         >
           <X size={15} />
         </button>
