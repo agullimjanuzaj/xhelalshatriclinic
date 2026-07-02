@@ -33,16 +33,18 @@ export function ClearableDateInput({
         min={min}
         max={max}
         disabled={disabled}
-        className="w-full pr-9"
+        className="w-full"
+        style={showClear ? { paddingRight: '32px' } : undefined}
       />
       {showClear && (
         <button
           type="button"
           onClick={onClear}
           aria-label="Pastro datën"
-          className="absolute right-0 top-0 h-full w-9 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px' }}
+          className="flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded"
         >
-          <X size={14} />
+          <X size={13} />
         </button>
       )}
     </div>
