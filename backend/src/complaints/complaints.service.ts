@@ -101,7 +101,13 @@ export class ComplaintsService {
   async remove(id: string) {
     const existing = await this.prisma.complaint.findFirst({ where: { id, deletedAt: null } });
     if (!existing) throw new NotFoundException('Ankesa nuk u gjet');
-    await this.prisma.complaint.update({ where: { id }, data: { deletedAt: new Date(), isActive: false } });
+    // Rename to free the DB-level unique constraint on `name` so the same
+    // name can be re-created immediately without hitting a P2002 violation.
+    const freedName = `${existing.name}_deleted_${Date.now()}`;
+    await this.prisma.complaint.update({
+      where: { id },
+      data: { deletedAt: new Date(), isActive: false, name: freedName },
+    });
     return { message: 'Ankesa u fshi me sukses' };
   }
 }

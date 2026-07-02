@@ -54,8 +54,14 @@ export class BranchesService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
-    await this.prisma.branch.update({ where: { id }, data: { deletedAt: new Date() } });
+    const existing = await this.findOne(id);
+    // Rename to free the DB-level unique constraint on `name` so the same
+    // name can be re-created immediately without hitting a P2002 violation.
+    const freedName = `${existing.name}_deleted_${Date.now()}`;
+    await this.prisma.branch.update({
+      where: { id },
+      data: { deletedAt: new Date(), name: freedName },
+    });
     return { message: 'Dega u fshi me sukses' };
   }
 
