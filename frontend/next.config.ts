@@ -72,6 +72,10 @@ const withPWA = require('@ducanh2912/next-pwa').default({
       // and API calls) must never serve a stale cached HTML/RSC payload for
       // a different user after logout/login — same-origin, not a Next.js
       // static asset, not an API call.
+      // safeErrorPlugin is required here to prevent uncaught `no-response`
+      // promise rejections when the network is unavailable. It also
+      // pre-empts next-pwa's own auto-injected handlerDidError (which
+      // minifies into a broken `_ref` reference in the generated sw.js).
       {
         urlPattern: ({ url, sameOrigin }: { url: URL; sameOrigin: boolean }) =>
           sameOrigin &&
@@ -81,6 +85,9 @@ const withPWA = require('@ducanh2912/next-pwa').default({
           !url.pathname.startsWith('/api/') &&
           !/\.(?:png|jpg|jpeg|svg|gif|webp|ico|woff2?)$/i.test(url.pathname),
         handler: 'NetworkOnly',
+        options: {
+          plugins: [safeErrorPlugin],
+        },
       },
       // Static, versioned Next.js build assets — safe to cache aggressively.
       {
@@ -135,6 +142,41 @@ const nextConfig: NextConfig = {
       {
         source: '/api/backend/:path*',
         destination: `${process.env.NEXT_PUBLIC_API_URL}/api/v1/:path*`,
+      },
+    ];
+  },
+  async headers() {
+    // Only apply strict CSP in production. In development, Next.js HMR and
+    // source maps require eval — enforcing CSP there breaks the dev server.
+    if (process.env.NODE_ENV !== 'production') return [];
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            // No unsafe-eval. Next.js 15 hydration needs unsafe-inline for
+            // its own inline script chunks; Workbox service worker lives in
+            // worker-src 'self'. connect-src 'self' https: covers the same-
+            // origin API rewrite and any configured external API base URL.
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob:",
+              "connect-src 'self' https:",
+              "font-src 'self'",
+              "worker-src 'self' blob:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
       },
     ];
   },

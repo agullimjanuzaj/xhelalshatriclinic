@@ -14,6 +14,10 @@ interface ClearableDateInputProps {
   className?: string;
 }
 
+// X sits OUTSIDE the <input> as a flex sibling — no absolute positioning,
+// no padding-right tricks that clip the year on narrow screens. The input
+// always renders full-width text; the button area is reserved at all times
+// (visibility:hidden when empty) to prevent layout shift on clear.
 export function ClearableDateInput({
   value,
   onChange,
@@ -25,7 +29,7 @@ export function ClearableDateInput({
 }: ClearableDateInputProps) {
   const showClear = !!value && !disabled;
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('flex items-center gap-1', className)}>
       <Input
         type="date"
         value={value}
@@ -33,27 +37,19 @@ export function ClearableDateInput({
         min={min}
         max={max}
         disabled={disabled}
-        className={cn('w-full', showClear && '[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden')}
-        style={showClear ? { paddingRight: '36px' } : undefined}
+        className="flex-1 min-w-0 w-full"
       />
-      {showClear && (
-        <button
-          type="button"
-          onClick={onClear}
-          aria-label="Pastro datën"
-          style={{
-            position: 'absolute',
-            right: '4px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '32px',
-            height: '32px',
-          }}
-          className="flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded"
-        >
-          <X size={16} />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={showClear ? onClear : undefined}
+        aria-label="Pastro datën"
+        aria-hidden={!showClear}
+        tabIndex={showClear ? 0 : -1}
+        style={{ visibility: showClear ? 'visible' : 'hidden' }}
+        className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <X size={16} />
+      </button>
     </div>
   );
 }
