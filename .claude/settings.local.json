@@ -110,7 +110,9 @@
       "Bash(node frontend/scripts/generate-notification-icons.mjs)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(xargs -I {} basename {})"
+      "Bash(xargs -I {} basename {})",
+      "Bash(Sort-Object LastWriteTime -Descending)",
+      "Bash(Select-Object -First 10 Name)"
     ]
   }
 }

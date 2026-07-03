@@ -9,17 +9,21 @@ import { computePlanFinancials } from '../payments/plan-financials.util';
 import { recalculatePatientStatus } from '../patients/patient-status.util';
 import { generateTreatmentPlanNotes } from './notes-generator.util';
 import { PushService } from '../push/push.service';
+import { GeminiService } from '../ai/gemini.service';
 
 @Injectable()
 export class TreatmentPlansService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
+    private readonly geminiService: GeminiService,
   ) {}
 
-  generateNotes(diagnosis?: string, treatmentTypes?: string[], totalSessions?: number, existingNotes?: string, complaints?: string[], selectedDiagnoses?: string[]) {
+  async generateNotes(diagnosis?: string, treatmentTypes?: string[], totalSessions?: number, existingNotes?: string, complaints?: string[], selectedDiagnoses?: string[]) {
     if (!diagnosis?.trim()) throw new BadRequestException('Diagnoza është e detyrueshme për gjenerim');
-    return { notes: generateTreatmentPlanNotes(diagnosis, treatmentTypes || [], totalSessions, existingNotes, complaints, selectedDiagnoses) };
+    const aiText = await this.geminiService.generateTreatmentPlan({ diagnosis, treatmentTypes: treatmentTypes || [], totalSessions, existingNotes, complaints, selectedDiagnoses });
+    const notes = aiText ?? generateTreatmentPlanNotes(diagnosis, treatmentTypes || [], totalSessions, existingNotes, complaints, selectedDiagnoses);
+    return { notes };
   }
 
   async findAll(dto: PaginationDto & { patientId?: string; branchId?: string; dateFrom?: string; dateTo?: string }, user: any) {

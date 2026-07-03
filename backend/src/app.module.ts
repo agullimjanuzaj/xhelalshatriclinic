@@ -22,6 +22,7 @@ import { ComplaintsModule } from './complaints/complaints.module';
 import { SuggestedConditionsModule } from './suggested-conditions/suggested-conditions.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { PushModule } from './push/push.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { PushModule } from './push/push.module';
       },
     ]),
     PrismaModule,
+    AiModule,
     PushModule,
     AuthModule,
     UsersModule,

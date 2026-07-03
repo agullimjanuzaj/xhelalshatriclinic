@@ -10,16 +10,20 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { recalculatePatientStatus } from '../patients/patient-status.util';
 import { generateSessionRecommendation } from './recommendation-generator.util';
 import { PushService } from '../push/push.service';
+import { GeminiService } from '../ai/gemini.service';
 
 @Injectable()
 export class SessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
+    private readonly geminiService: GeminiService,
   ) {}
 
-  generateRecommendation(notes?: string, treatmentTypes?: string[]) {
-    return { recommendation: generateSessionRecommendation(notes, treatmentTypes) };
+  async generateRecommendation(notes?: string, treatmentTypes?: string[]) {
+    const aiText = await this.geminiService.generateRecommendation({ notes, treatmentTypes });
+    const recommendation = aiText ?? generateSessionRecommendation(notes, treatmentTypes);
+    return { recommendation };
   }
 
   async findAll(
