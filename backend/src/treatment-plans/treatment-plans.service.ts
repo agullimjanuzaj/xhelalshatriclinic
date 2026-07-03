@@ -19,11 +19,12 @@ export class TreatmentPlansService {
     private readonly geminiService: GeminiService,
   ) {}
 
-  async generateNotes(diagnosis?: string, treatmentTypes?: string[], totalSessions?: number, existingNotes?: string, complaints?: string[], selectedDiagnoses?: string[]) {
+  async generateNotes(diagnosis?: string, treatmentTypes?: string[], totalSessions?: number, existingNotes?: string, complaints?: string[], selectedDiagnoses?: string[]): Promise<{ text: string; source: 'gemini' | 'fallback' }> {
     if (!diagnosis?.trim()) throw new BadRequestException('Diagnoza është e detyrueshme për gjenerim');
     const aiText = await this.geminiService.generateTreatmentPlan({ diagnosis, treatmentTypes: treatmentTypes || [], totalSessions, existingNotes, complaints, selectedDiagnoses });
-    const notes = aiText ?? generateTreatmentPlanNotes(diagnosis, treatmentTypes || [], totalSessions, existingNotes, complaints, selectedDiagnoses);
-    return { notes };
+    if (aiText) return { text: aiText, source: 'gemini' };
+    const fallback = generateTreatmentPlanNotes(diagnosis, treatmentTypes || [], totalSessions, existingNotes, complaints, selectedDiagnoses);
+    return { text: fallback, source: 'fallback' };
   }
 
   async findAll(dto: PaginationDto & { patientId?: string; branchId?: string; dateFrom?: string; dateTo?: string }, user: any) {

@@ -29,8 +29,8 @@ export function GenerateNotesButton({ diagnosis, treatmentTypes, totalSessions, 
   const mutation = useMutation({
     mutationFn: () => treatmentPlansApi.generateNotes({ diagnosis, treatmentTypes, totalSessions, existingNotes, complaints, selectedDiagnoses }),
     onSuccess: (res: any) => {
-      const data = extractItem<{ notes: string }>(res);
-      if (data?.notes) onGenerated(data.notes);
+      const data = extractItem<{ text: string; source: string }>(res);
+      if (data?.text) onGenerated(data.text);
     },
     onError: (e: Error) => toast.error(e.message),
   });

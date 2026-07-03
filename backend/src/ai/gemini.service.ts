@@ -16,17 +16,38 @@ export interface GenerateRecommendationInput {
   treatmentTypes?: string[];
 }
 
-// Timeout for Gemini API calls — stays well within the NestJS request timeout
-// and prevents the user from waiting indefinitely if the API is slow.
-const TIMEOUT_MS = 10_000;
+export interface AiResult {
+  text: string;
+  source: 'gemini' | 'fallback';
+}
 
-// Wraps a promise with a timeout. Rejects with a timeout error if the wrapped
-// promise hasn't resolved within TIMEOUT_MS milliseconds.
+const TIMEOUT_MS = 15_000;
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`Gemini timeout after ${ms}ms`)), ms)),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Gemini timeout after ${ms}ms`)), ms),
+    ),
   ]);
+}
+
+// Accumulates all text chunks from a Gemini streaming response.
+// Streaming is used instead of generateContent so that:
+// 1. Every chunk's text is concatenated — no partial-response truncation.
+// 2. The SDK's per-chunk .text() correctly filters out thought parts for
+//    gemini-2.5-flash, which uses thinking tokens by default. Without
+//    streaming, result.response.text() may concatenate thought tokens with
+//    the answer, or — when maxOutputTokens is too low — thinking consumes
+//    the budget leaving almost no tokens for the actual answer.
+async function streamToText(model: GenerativeModel, prompt: string): Promise<string> {
+  const result = await model.generateContentStream(prompt);
+  let fullText = '';
+  for await (const chunk of result.stream) {
+    const part = chunk.text();
+    if (part) fullText += part;
+  }
+  return fullText.trim();
 }
 
 @Injectable()
@@ -44,10 +65,15 @@ export class GeminiService {
       const genAI = new GoogleGenerativeAI(apiKey);
       this.model = genAI.getGenerativeModel({
         model: 'gemini-2.5-flash',
+        // Cast as any: thinkingConfig is not yet in the SDK's TS types but
+        // IS accepted by the API. Setting thinkingBudget:0 prevents the
+        // model's chain-of-thought from consuming the maxOutputTokens budget,
+        // which is what caused very-short truncated responses.
         generationConfig: {
-          temperature: 0.85,
-          maxOutputTokens: 512,
-        },
+          temperature: 0.6,
+          maxOutputTokens: 1000,
+          thinkingConfig: { thinkingBudget: 0 },
+        } as any,
       });
       this.logger.log('GeminiService ready (model: gemini-2.5-flash)');
     } catch (err) {
@@ -55,17 +81,14 @@ export class GeminiService {
     }
   }
 
-  // Returns generated text, or null when AI is unavailable / fails so the
-  // caller can fall back to the template generator.
   async generateTreatmentPlan(input: GeneratePlanInput): Promise<string | null> {
     if (!this.model) return null;
     const start = Date.now();
     try {
       const prompt = this.buildTreatmentPlanPrompt(input);
-      const result = await withTimeout(this.model.generateContent(prompt), TIMEOUT_MS);
-      const text = result.response.text().trim();
+      const text = await withTimeout(streamToText(this.model, prompt), TIMEOUT_MS);
       if (!text) throw new Error('Empty response from Gemini');
-      this.logger.log(`Treatment plan generated successfully (${Date.now() - start}ms)`);
+      this.logger.log(`Treatment plan generated (${Date.now() - start}ms, ${text.length} chars)`);
       return text;
     } catch (err) {
       this.logger.error(`Treatment plan generation failed (${Date.now() - start}ms): ${(err as Error).message}`);
@@ -78,10 +101,9 @@ export class GeminiService {
     const start = Date.now();
     try {
       const prompt = this.buildRecommendationPrompt(input);
-      const result = await withTimeout(this.model.generateContent(prompt), TIMEOUT_MS);
-      const text = result.response.text().trim();
+      const text = await withTimeout(streamToText(this.model, prompt), TIMEOUT_MS);
       if (!text) throw new Error('Empty response from Gemini');
-      this.logger.log(`Recommendation generated successfully (${Date.now() - start}ms)`);
+      this.logger.log(`Recommendation generated (${Date.now() - start}ms, ${text.length} chars)`);
       return text;
     } catch (err) {
       this.logger.error(`Recommendation generation failed (${Date.now() - start}ms): ${(err as Error).message}`);
@@ -113,12 +135,12 @@ export class GeminiService {
       '3. Skicon progresionin e trajtimit në faza (nga passive/aktive drejt funksionale)',
       '4. Integron numrin e seancave në strukturën e planit',
       '5. Është i personalizuar — shmangu fraza të banalitetit si "plani i trajtimit fokusohet në..."',
-      '6. Shkruhet si tekst i vazhdueshëm (pa pika liste ose numërime)',
+      '6. Shkruhet si tekst i vazhdueshëm, plain text (pa pika liste, pa markdown, pa numërime)',
       '7. Nuk shpik simptoma, diagnoza ose detaje klinike që nuk janë dhënë',
       '8. Fillon direkt me planin — pa hyrje si "Sigurisht", "Natyrisht", "Mirë", etj.',
       '9. Nuk përfshin disclaimer-a ose shënime mbi rolin e AI',
       '',
-      'Shkruaje direkt planin:',
+      'Shkruaje direkt planin (plain text, 150-250 fjalë):',
     );
 
     return lines.join('\n');
@@ -145,10 +167,10 @@ export class GeminiService {
       '4. Përfshijnë këshilla posturale ose aktiviteti nëse janë relevante',
       '5. Nuk shpikin simptoma ose diagnoza të reja',
       '6. Nuk fillojnë me fjalë ndihmuese ("Sigurisht", "Natyrisht", "Në vijim", etj.)',
-      '7. Shkruhen si paragraf i vazhdueshëm profesional, jo si listë',
+      '7. Shkruhen si paragraf i vazhdueshëm, plain text (jo listë, jo markdown)',
       '8. Nuk përfshijnë disclaimer-a mbi rolin e AI',
       '',
-      'Shkruaje direkt rekomandimin:',
+      'Shkruaje direkt rekomandimin (plain text, 80-130 fjalë):',
     );
 
     return lines.join('\n');

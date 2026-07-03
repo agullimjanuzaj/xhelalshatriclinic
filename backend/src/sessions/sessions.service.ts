@@ -20,10 +20,11 @@ export class SessionsService {
     private readonly geminiService: GeminiService,
   ) {}
 
-  async generateRecommendation(notes?: string, treatmentTypes?: string[]) {
+  async generateRecommendation(notes?: string, treatmentTypes?: string[]): Promise<{ text: string; source: 'gemini' | 'fallback' }> {
     const aiText = await this.geminiService.generateRecommendation({ notes, treatmentTypes });
-    const recommendation = aiText ?? generateSessionRecommendation(notes, treatmentTypes);
-    return { recommendation };
+    if (aiText) return { text: aiText, source: 'gemini' };
+    const fallback = generateSessionRecommendation(notes, treatmentTypes);
+    return { text: fallback, source: 'fallback' };
   }
 
   async findAll(

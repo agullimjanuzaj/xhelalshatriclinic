@@ -20,8 +20,8 @@ export function GenerateRecommendationButton({ notes, treatmentTypes, onGenerate
   const mutation = useMutation({
     mutationFn: () => sessionsApi.generateRecommendation({ notes, treatmentTypes }),
     onSuccess: (res: any) => {
-      const data = extractItem<{ recommendation: string }>(res);
-      if (data?.recommendation) onGenerated(data.recommendation);
+      const data = extractItem<{ text: string; source: string }>(res);
+      if (data?.text) onGenerated(data.text);
     },
     onError: (e: Error) => toast.error(e.message),
   });
