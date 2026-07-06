@@ -21,6 +21,17 @@ export interface GenerateComplaintDescriptionInput {
   category?: string;
 }
 
+export interface GenerateSessionNoteInput {
+  treatmentTypes: string[];
+  complaints?: string[];
+  complaintDescription?: string;
+  diagnosis?: string;
+  selectedDiagnoses?: string[];
+  planNotes?: string;
+  sessionNumber?: number;
+  totalSessions?: number;
+}
+
 export interface AiResult {
   text: string;
   source: 'gemini' | 'fallback';
@@ -116,6 +127,21 @@ export class GeminiService {
     }
   }
 
+  async generateSessionNote(input: GenerateSessionNoteInput): Promise<string | null> {
+    if (!this.model) return null;
+    const start = Date.now();
+    try {
+      const prompt = this.buildSessionNotePrompt(input);
+      const text = await withTimeout(streamToText(this.model, prompt), TIMEOUT_MS);
+      if (!text) throw new Error('Empty response from Gemini');
+      this.logger.log(`Session note generated (${Date.now() - start}ms, ${text.length} chars)`);
+      return text;
+    } catch (err) {
+      this.logger.error(`Session note generation failed (${Date.now() - start}ms): ${(err as Error).message}`);
+      return null;
+    }
+  }
+
   async generateRecommendation(input: GenerateRecommendationInput): Promise<string | null> {
     if (!this.model) return null;
     const start = Date.now();
@@ -203,6 +229,42 @@ export class GeminiService {
       '- Pa disclaimer-a mbi rolin e AI',
       '',
       'Shkruaje direkt përshkrimin (plain text, 1-3 fjali):',
+    );
+    return lines.join('\n');
+  }
+
+  private buildSessionNotePrompt(input: GenerateSessionNoteInput): string {
+    const { treatmentTypes, complaints, complaintDescription, diagnosis, selectedDiagnoses, planNotes, sessionNumber, totalSessions } = input;
+    const lines = [
+      'Ti je një fizioterapeut klinik që po dokumenton zhvillimin e seancës.',
+      '',
+      'Të dhënat e seancës:',
+      `- Llojet e trajtimit të aplikuara: ${treatmentTypes.join(', ')}`,
+    ];
+    if (sessionNumber && totalSessions) lines.push(`- Seanca nr. ${sessionNumber} nga ${totalSessions}`);
+    else if (sessionNumber) lines.push(`- Seanca nr. ${sessionNumber}`);
+    if (complaintDescription?.trim()) lines.push(`- Përshkrimi i ankesave: ${complaintDescription.trim()}`);
+    else if (complaints?.length) lines.push(`- Ankesat kryesore: ${complaints.join(', ')}`);
+    if (diagnosis?.trim()) lines.push(`- Diagnoza: ${diagnosis.trim()}`);
+    if (selectedDiagnoses?.length) lines.push(`- Konsideratat diagnostikuese: ${selectedDiagnoses.join(', ')}`);
+    if (planNotes?.trim()) lines.push(`- Plani i trajtimit: ${planNotes.trim()}`);
+    lines.push(
+      '',
+      'Shkruaj një shënim profesional fizioterapeutik (20-60 fjalë) VETËM bazuar në të dhënat e mësipërme.',
+      '',
+      'Rregulla strikte:',
+      '- Mos shpik diagnozë të re',
+      '- Mos jep rekomandime',
+      '- Mos shto informacione që nuk janë dhënë',
+      '- Përshkruj shkurt zhvillimin e seancës dhe trajtimet e aplikuara',
+      '- Mos përshkruj trajtime që nuk janë listuar',
+      '- Tekst i vazhdueshëm, plain text (pa markdown, pa lista, pa numërime)',
+      '- Gjuhë shqipe profesionale klinike',
+      '- Pa hyrje si "Sigurisht", "Natyrisht" — fillo direkt me shënimin',
+      '- Pa disclaimer-a mbi rolin e AI',
+      '- Varioso formulimin — mos përsërit gjithmonë të njëjtat fraza',
+      '',
+      'Shkruaje direkt shënimin (plain text, 20-60 fjalë):',
     );
     return lines.join('\n');
   }

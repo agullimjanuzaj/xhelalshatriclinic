@@ -144,6 +144,8 @@ export const sessionsApi = {
   delete: (id: string) => api.delete(`/sessions/${id}`),
   generateRecommendation: (data: { notes?: string; treatmentTypes?: string[] }) =>
     api.post('/sessions/generate-recommendation', data),
+  generateNote: (data: { treatmentTypes: string[]; complaints?: string[]; complaintDescription?: string; diagnosis?: string; selectedDiagnoses?: string[]; planNotes?: string; sessionNumber?: number; totalSessions?: number }) =>
+    api.post('/sessions/generate-note', data),
 };
 
 export const treatmentsApi = {

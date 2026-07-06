@@ -50,6 +50,13 @@ export class SessionsController {
     return this.sessionsService.generateRecommendation(dto.notes, dto.treatmentTypes);
   }
 
+  @Post('generate-note')
+  @Roles(Role.ADMIN, Role.PHYSIOTHERAPIST)
+  @ApiOperation({ summary: 'Gjenero shënimin e shkurtër të seancës me Gemini AI' })
+  generateSessionNote(@Body() dto: { treatmentTypes: string[]; complaints?: string[]; complaintDescription?: string; diagnosis?: string; selectedDiagnoses?: string[]; planNotes?: string; sessionNumber?: number; totalSessions?: number }) {
+    return this.sessionsService.generateSessionNote(dto);
+  }
+
   @Patch(':id/complete')
   @Roles(Role.ADMIN, Role.PHYSIOTHERAPIST)
   @ApiOperation({ summary: 'Kompletohet seanca' })

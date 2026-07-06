@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PatientCombobox } from '@/components/ui/patient-combobox';
 import { TreatmentTypesChecklist } from '@/components/sessions/treatment-types-checklist';
 import { GenerateRecommendationButton } from '@/components/sessions/generate-recommendation-button';
+import { GenerateSessionNoteButton } from '@/components/sessions/generate-session-note-button';
 import { Loader2 } from 'lucide-react';
 import { getTreatmentTypeLabel, extractList, extractItem, formatCurrency } from '@/lib/utils';
 
@@ -234,7 +235,20 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
 
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
-                <FormLabel>Shënim i shkurtër</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Shënim i shkurtër</FormLabel>
+                  <GenerateSessionNoteButton
+                    treatmentTypes={watchedTypes}
+                    complaints={selectedPlan?.complaints}
+                    complaintDescription={selectedPlan?.complaintDescription}
+                    diagnosis={selectedPlan?.diagnosis}
+                    selectedDiagnoses={selectedPlan?.selectedDiagnoses}
+                    planNotes={selectedPlan?.notes}
+                    sessionNumber={selectedPlan ? selectedPlan.completedSessions + 1 : undefined}
+                    totalSessions={selectedPlan?.totalSessions}
+                    onGenerated={(text) => form.setValue('notes', text)}
+                  />
+                </div>
                 <FormControl><Textarea placeholder="Si shkoi seanca..." rows={2} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>

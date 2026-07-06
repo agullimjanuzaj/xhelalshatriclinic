@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
@@ -10,10 +10,12 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { recalculatePatientStatus } from '../patients/patient-status.util';
 import { generateSessionRecommendation } from './recommendation-generator.util';
 import { PushService } from '../push/push.service';
-import { GeminiService } from '../ai/gemini.service';
+import { GeminiService, GenerateSessionNoteInput } from '../ai/gemini.service';
 
 @Injectable()
 export class SessionsService {
+  private readonly logger = new Logger(SessionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
@@ -24,6 +26,18 @@ export class SessionsService {
     const aiText = await this.geminiService.generateRecommendation({ notes, treatmentTypes });
     if (aiText) return { text: aiText, source: 'gemini' };
     const fallback = generateSessionRecommendation(notes, treatmentTypes);
+    return { text: fallback, source: 'fallback' };
+  }
+
+  async generateSessionNote(input: GenerateSessionNoteInput): Promise<{ text: string; source: 'gemini' | 'fallback' }> {
+    if (!input.treatmentTypes?.length) throw new BadRequestException('Zgjidhni të paktën një lloj trajtimi');
+    const aiText = await this.geminiService.generateSessionNote(input);
+    if (aiText) {
+      this.logger.log('GEMINI USED - Session Note');
+      return { text: aiText, source: 'gemini' };
+    }
+    this.logger.warn('FALLBACK USED - Session Note');
+    const fallback = `Seanca u realizua sipas planit të trajtimit. U aplikuan: ${input.treatmentTypes.join(', ')}.`;
     return { text: fallback, source: 'fallback' };
   }
 
