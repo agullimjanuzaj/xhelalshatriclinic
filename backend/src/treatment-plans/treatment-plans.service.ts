@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTreatmentPlanDto } from './dto/create-treatment-plan.dto';
 import { UpdateTreatmentPlanDto } from './dto/update-treatment-plan.dto';
@@ -13,6 +13,8 @@ import { GeminiService } from '../ai/gemini.service';
 
 @Injectable()
 export class TreatmentPlansService {
+  private readonly logger = new Logger(TreatmentPlansService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly pushService: PushService,
@@ -30,9 +32,12 @@ export class TreatmentPlansService {
   async generateComplaintDescription(complaints: string[], category?: string): Promise<{ text: string; source: 'gemini' | 'fallback' }> {
     if (!complaints?.length) throw new BadRequestException('Zgjidhni të paktën një ankesë');
     const aiText = await this.geminiService.generateComplaintDescription({ complaints, category });
-    if (aiText) return { text: aiText, source: 'gemini' };
-    // Simple fallback: join complaints into a sentence
-    const fallback = `Pacienti ankon kryesisht për: ${complaints.join(', ')}.`;
+    if (aiText) {
+      this.logger.log('GEMINI USED for complaint description');
+      return { text: aiText, source: 'gemini' };
+    }
+    this.logger.warn('FALLBACK USED for complaint description');
+    const fallback = `Pacienti u paraqit me ankesa për: ${complaints.join(', ')}.`;
     return { text: fallback, source: 'fallback' };
   }
 

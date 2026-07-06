@@ -180,24 +180,29 @@ export class GeminiService {
       SHPUTA: 'Shputa dhe zogu i këmbës',
     };
     const lines = [
-      'Ti je një fizioterapeut klinik që po dokumenton historikun e ankesave të pacientit.',
+      'Ti je një fizioterapeut klinik që dokumenton historikun e ankesave të pacientit.',
+      '',
+      'Ankesat e zgjedhura nga pacienti:',
+      ...complaints.map((c) => `- ${c}`),
       '',
     ];
     if (category && CATEGORY_LABELS[category]) {
-      lines.push(`Rajoni anatomik: ${CATEGORY_LABELS[category]}`);
+      lines.push(`Rajoni anatomik: ${CATEGORY_LABELS[category]}`, '');
     }
     lines.push(
-      `Ankesat kryesore të raportuar nga pacienti: ${complaints.join(', ')}`,
+      'Shkruaj një përshkrim klinik të shkurtër (1-3 fjali) VETËM bazuar në ankesat e mësipërme.',
       '',
-      'Shkruaj një përshkrim të shkurtër klinik (40-80 fjalë) të ankesave në shqip, që:',
-      '1. Formulon ankesat si narrativ klinik profesional (jo si listë)',
-      '2. Kombinon ankesat logjikisht nëse janë të lidhura',
-      '3. Nuk shpik simptoma shtesë ose detaje specifike (intensitet, kohëzgjatje) që nuk janë dhënë',
-      '4. Shkruhet si tekst i vazhdueshëm, plain text (pa markdown)',
-      '5. Fillon direkt me përshkrimin — pa hyrje si "Sigurisht", "Pacienti ankon", etj.',
-      '6. Nuk përfshin rekomandime trajtimi — vetëm dokumentim ankesash',
+      'Rregulla strikte:',
+      '- Mos shpik diagnozë',
+      '- Mos shkruaj plan trajtimi',
+      '- Mos jep rekomandime',
+      '- Mos shto simptoma ose detaje që nuk janë dhënë',
+      '- Tekst i vazhdueshëm, plain text (pa markdown, pa lista, pa numërime)',
+      '- Gjuhë shqipe profesionale klinike',
+      '- Pa hyrje si "Sigurisht", "Natyrisht", "Mirë" — fillo direkt me përshkrimin',
+      '- Pa disclaimer-a mbi rolin e AI',
       '',
-      'Shkruaje direkt përshkrimin (plain text, 40-80 fjalë):',
+      'Shkruaje direkt përshkrimin (plain text, 1-3 fjali):',
     );
     return lines.join('\n');
   }
