@@ -270,13 +270,14 @@ export class PaymentsService {
 
   async remove(id: string, user: any) {
     const existing = await this.findOne(id, user);
-    await this.prisma.payment.update({ where: { id }, data: { deletedAt: new Date() } });
 
-    // Voiding a payment must give back whatever debt it had cleared.
+    // Reverse plan financials before deleting
     if (existing.treatmentPlanId) {
       await this.adjustPlanAmountPaid(existing.treatmentPlanId, new Decimal(existing.amount.toString()).negated());
     }
+    // Unlink sessions before deleting payment (session.paymentId is optional)
     await this.prisma.session.updateMany({ where: { paymentId: id }, data: { paymentId: null, isPaid: false } });
+    await this.prisma.payment.delete({ where: { id } });
 
     await this.prisma.auditLog.create({
       data: {

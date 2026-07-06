@@ -515,10 +515,11 @@ export class SessionsService {
       }
     }
 
-    await this.prisma.session.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.treatment.deleteMany({ where: { sessionId: id } });
+      await tx.session.delete({ where: { id } });
+    });
 
-    // Give back the slot in the plan's completed-sessions count so the
-    // plan's earned amount / debt reflects reality immediately.
     if (existing.treatmentPlanId && existing.status === SessionStatus.COMPLETED) {
       const plan = await this.prisma.treatmentPlan.findUnique({ where: { id: existing.treatmentPlanId } });
       if (plan && plan.completedSessions > 0) {

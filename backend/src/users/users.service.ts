@@ -124,15 +124,32 @@ export class UsersService {
   async remove(id: string, requestingUserId: string) {
     if (id === requestingUserId)
       throw new ForbiddenException('Nuk mund të fshini llogarinë tuaj');
-    const user = await this.findOne(id);
-    // Rename the username on soft-delete so the original name is immediately
-    // available for a new user — a DB-level UNIQUE constraint on username
-    // would otherwise block re-registration even though the old record is
-    // logically deleted.
-    const freedUsername = `${user.username}_deleted_${Date.now()}`;
-    await this.prisma.user.update({
-      where: { id },
-      data: { deletedAt: new Date(), isActive: false, username: freedUsername },
+    await this.findOne(id);
+
+    // Treatment.physiotherapistId is a required (non-nullable) FK — we cannot
+    // hard-delete a user who has clinical treatment records without losing that
+    // history. Keep the soft-delete in that case but still free the username.
+    const treatmentCount = await this.prisma.treatment.count({ where: { physiotherapistId: id } });
+    if (treatmentCount > 0) {
+      const freedUsername = `deleted_${Date.now()}`;
+      await this.prisma.user.update({
+        where: { id },
+        data: { deletedAt: new Date(), isActive: false, username: freedUsername },
+      });
+      return { message: 'Përdoruesi u fshi me sukses' };
+    }
+
+    // No clinical history — null out optional FKs then hard delete
+    // (UserBranch, RefreshToken, PushSubscription, Notification cascade automatically)
+    await this.prisma.$transaction(async (tx) => {
+      await tx.session.updateMany({ where: { physiotherapistId: id }, data: { physiotherapistId: null } });
+      await tx.session.updateMany({ where: { completedByUserId: id }, data: { completedByUserId: null } });
+      await tx.session.updateMany({ where: { priceChangedByUserId: id }, data: { priceChangedByUserId: null } });
+      await tx.treatmentPlan.updateMany({ where: { createdByUserId: id }, data: { createdByUserId: null } });
+      await tx.treatmentPlan.updateMany({ where: { assignedPhysiotherapistId: id }, data: { assignedPhysiotherapistId: null } });
+      await tx.payment.updateMany({ where: { createdByUserId: id }, data: { createdByUserId: null } });
+      await tx.branch.updateMany({ where: { managerId: id }, data: { managerId: null } });
+      await tx.user.delete({ where: { id } });
     });
     return { message: 'Përdoruesi u fshi me sukses' };
   }

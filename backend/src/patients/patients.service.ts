@@ -378,7 +378,15 @@ export class PatientsService {
 
   async remove(id: string, user: any) {
     const existing = await this.findOne(id, user);
-    await this.prisma.patient.update({ where: { id }, data: { deletedAt: new Date() } });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.treatment.deleteMany({ where: { patientId: id } });
+      await tx.session.deleteMany({ where: { patientId: id } });
+      await tx.payment.deleteMany({ where: { patientId: id } });
+      await tx.treatmentPlan.deleteMany({ where: { patientId: id } });
+      await tx.patient.delete({ where: { id } });
+    });
+
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,

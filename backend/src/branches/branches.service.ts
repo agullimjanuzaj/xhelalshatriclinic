@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
@@ -54,14 +54,23 @@ export class BranchesService {
   }
 
   async remove(id: string) {
-    const existing = await this.findOne(id);
-    // Rename to free the DB-level unique constraint on `name` so the same
-    // name can be re-created immediately without hitting a P2002 violation.
-    const freedName = `${existing.name}_deleted_${Date.now()}`;
-    await this.prisma.branch.update({
-      where: { id },
-      data: { deletedAt: new Date(), name: freedName },
-    });
+    await this.findOne(id);
+
+    const [patientCount, sessionCount, paymentCount, planCount] = await Promise.all([
+      this.prisma.patient.count({ where: { branchId: id } }),
+      this.prisma.session.count({ where: { branchId: id } }),
+      this.prisma.payment.count({ where: { branchId: id } }),
+      this.prisma.treatmentPlan.count({ where: { branchId: id } }),
+    ]);
+    const total = patientCount + sessionCount + paymentCount + planCount;
+    if (total > 0) {
+      throw new BadRequestException(
+        `Dega nuk mund të fshihet — ka rekorde të lidhura (${patientCount} pacientë, ${sessionCount} seanca, ${paymentCount} pagesa, ${planCount} kontrolla)`,
+      );
+    }
+
+    // UserBranch rows cascade automatically (onDelete: Cascade)
+    await this.prisma.branch.delete({ where: { id } });
     return { message: 'Dega u fshi me sukses' };
   }
 

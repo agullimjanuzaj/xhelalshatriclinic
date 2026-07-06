@@ -355,29 +355,31 @@ export class TreatmentPlansService {
   }
 
   async remove(id: string, user: any) {
-    // Only ADMIN may delete a Kontrollë.
     if (user.role !== Role.ADMIN) {
       throw new ForbiddenException('Vetëm administratori mund të fshijë një kontrollë');
     }
 
     const existing = await this.findOne(id, user);
-    // Soft delete only — sessions/payments keep referencing this plan by id
-    // for historical/invoice purposes, they just stop showing it as active.
-    await this.prisma.treatmentPlan.update({ where: { id }, data: { deletedAt: new Date() } });
+    const patientId = existing.patientId;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.treatment.deleteMany({ where: { treatmentPlanId: id } });
+      await tx.session.deleteMany({ where: { treatmentPlanId: id } });
+      await tx.payment.deleteMany({ where: { treatmentPlanId: id } });
+      await tx.treatmentPlan.delete({ where: { id } });
+    });
+
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,
         action: 'DELETE',
         entity: 'treatment_plan',
         entityId: id,
-        oldData: { patientId: existing.patientId, totalAmount: existing.totalAmount.toString(), sessionsCount: existing.sessions.length, paymentsCount: existing.payments.length },
+        oldData: { patientId, totalAmount: existing.totalAmount.toString() },
       },
     });
 
-    // Deleting a plan can remove the only thing keeping a patient
-    // IN_TREATMENT, or can remove a completed plan leaving others active —
-    // recompute rather than assume.
-    await recalculatePatientStatus(this.prisma, existing.patientId);
+    await recalculatePatientStatus(this.prisma, patientId);
 
     return { message: 'Plani i trajtimit u fshi me sukses' };
   }
