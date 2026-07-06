@@ -25,7 +25,8 @@ import { TreatmentTypesChecklist } from '@/components/sessions/treatment-types-c
 import { GenerateRecommendationButton } from '@/components/sessions/generate-recommendation-button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showSessionReport, printSessionReport, shareSessionReport } from '@/lib/invoice';
+import { printSessionReport, shareSessionReport } from '@/lib/invoice';
+import { SessionViewerDialog } from '@/components/sessions/session-viewer-dialog';
 
 const completeSchema = z.object({
   notes: z.string().optional(),
@@ -52,6 +53,7 @@ export function PhysioSessionsView() {
   const [showCreate, setShowCreate] = useState(false);
   const [editSession, setEditSession] = useState<any>(null);
   const [deleteSession, setDeleteSession] = useState<any>(null);
+  const [viewSessionId, setViewSessionId] = useState<string | null>(null);
 
   const setDateParam = (key: 'dateFrom' | 'dateTo', value: string) => {
     setPage(1);
@@ -145,7 +147,7 @@ export function PhysioSessionsView() {
             </Button>
           )}
           <DocumentActions
-            onShow={() => showSessionReport(row.id)}
+            onShow={() => setViewSessionId(row.id)}
             onPrint={() => printSessionReport(row.id)}
             onShare={() => shareSessionReport(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
@@ -286,6 +288,16 @@ export function PhysioSessionsView() {
         description="A jeni i sigurt që dëshironi ta fshini këtë trajtim?"
         onConfirm={() => deleteSession && deleteMutation.mutate(deleteSession.id)}
         isPending={deleteMutation.isPending}
+      />
+
+      <SessionViewerDialog
+        sessionId={viewSessionId}
+        onClose={() => setViewSessionId(null)}
+        onPrint={() => viewSessionId && printSessionReport(viewSessionId)}
+        onShare={() => {
+          const s = sessions.find((x: any) => x.id === viewSessionId);
+          return shareSessionReport(viewSessionId!, s?.patient?.firstName, s?.patient?.lastName);
+        }}
       />
     </div>
   );

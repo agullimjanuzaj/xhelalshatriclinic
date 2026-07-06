@@ -11,7 +11,8 @@ import { getTreatmentTypeLabel, formatDate } from '@/lib/utils';
 import { getPatientDetailPath } from '@/lib/routes';
 import { Badge } from '@/components/ui/badge';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showTreatmentPlan, printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
+import { printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
+import { PlanViewerDialog } from '@/components/treatment-plans/plan-viewer-dialog';
 
 const ASSIGNED_ROW = 'border-l-[3px] border-l-teal-500 bg-teal-50/40 dark:bg-teal-950/20';
 
@@ -22,6 +23,7 @@ export function PhysioTreatmentsView() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [page, setPage] = useState(1);
+  const [viewPlanId, setViewPlanId] = useState<string | null>(null);
 
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
@@ -85,7 +87,7 @@ export function PhysioTreatmentsView() {
       header: 'Veprimet',
       accessor: (row) => (
         <DocumentActions
-          onShow={() => showTreatmentPlan(row.id)}
+          onShow={() => setViewPlanId(row.id)}
           onPrint={() => printTreatmentPlan(row.id)}
           onShare={() => shareTreatmentPlan(row.id, row.patient?.firstName, row.patient?.lastName)}
         />
@@ -142,6 +144,16 @@ export function PhysioTreatmentsView() {
         emptyMessage="Nuk ka kontrolla"
         onRowClick={(row: any) => router.push(`${getPatientDetailPath('PHYSIOTHERAPIST', row.patientId)}?tab=trajtimet`)}
         rowClassName={(row: any) => row.assignedPhysiotherapistId === userId ? ASSIGNED_ROW : undefined}
+      />
+
+      <PlanViewerDialog
+        planId={viewPlanId}
+        onClose={() => setViewPlanId(null)}
+        onPrint={() => viewPlanId && printTreatmentPlan(viewPlanId)}
+        onShare={() => {
+          const plan = plans.find((p: any) => p.id === viewPlanId);
+          return shareTreatmentPlan(viewPlanId!, plan?.patient?.firstName, plan?.patient?.lastName);
+        }}
       />
     </div>
   );

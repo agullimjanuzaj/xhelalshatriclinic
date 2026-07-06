@@ -16,7 +16,8 @@ import { getTreatmentTypeLabel, formatDate } from '@/lib/utils';
 import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
 import { CreatePlanDialog } from '@/components/treatment-plans/create-plan-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showTreatmentPlan, printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
+import { printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
+import { PlanViewerDialog } from '@/components/treatment-plans/plan-viewer-dialog';
 import { toast } from 'sonner';
 
 export function AdminTreatmentsView() {
@@ -29,6 +30,7 @@ export function AdminTreatmentsView() {
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [editPlan, setEditPlan] = useState<any>(null);
   const [deletePlan, setDeletePlan] = useState<any>(null);
+  const [viewPlanId, setViewPlanId] = useState<string | null>(null);
 
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
@@ -122,7 +124,7 @@ export function AdminTreatmentsView() {
       accessor: (row) => (
         <div className="flex items-center gap-1">
           <DocumentActions
-            onShow={() => showTreatmentPlan(row.id)}
+            onShow={() => setViewPlanId(row.id)}
             onPrint={() => printTreatmentPlan(row.id)}
             onShare={() => shareTreatmentPlan(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
@@ -227,6 +229,16 @@ export function AdminTreatmentsView() {
         description={`Trajtimi i ${deletePlan?.patient?.firstName} ${deletePlan?.patient?.lastName} do të fshihet. Seancat dhe pagesat ekzistuese nuk humbasin, vetëm trajtimi nuk do të shfaqet më si aktiv.`}
         onConfirm={() => deletePlan && deleteMutation.mutate(deletePlan.id)}
         isPending={deleteMutation.isPending}
+      />
+
+      <PlanViewerDialog
+        planId={viewPlanId}
+        onClose={() => setViewPlanId(null)}
+        onPrint={() => viewPlanId && printTreatmentPlan(viewPlanId)}
+        onShare={() => {
+          const plan = plans.find((p: any) => p.id === viewPlanId);
+          return shareTreatmentPlan(viewPlanId!, plan?.patient?.firstName, plan?.patient?.lastName);
+        }}
       />
     </div>
   );

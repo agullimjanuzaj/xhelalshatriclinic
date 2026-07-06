@@ -12,7 +12,8 @@ import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { getTreatmentTypeLabel, formatDate } from '@/lib/utils';
 import { getPatientDetailPath } from '@/lib/routes';
 import { DocumentActions } from '@/components/shared/document-actions';
-import { showTreatmentPlan, printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
+import { printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
+import { PlanViewerDialog } from '@/components/treatment-plans/plan-viewer-dialog';
 
 export function ManagerTreatmentsView() {
   const { data: session } = useSession();
@@ -20,6 +21,7 @@ export function ManagerTreatmentsView() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [page, setPage] = useState(1);
+  const [viewPlanId, setViewPlanId] = useState<string | null>(null);
 
   const branchId = session?.user?.userBranches?.[0]?.branchId;
   const dateFrom = searchParams.get('dateFrom') || '';
@@ -82,7 +84,7 @@ export function ManagerTreatmentsView() {
       header: 'Veprimet',
       accessor: (row) => (
         <DocumentActions
-          onShow={() => showTreatmentPlan(row.id)}
+          onShow={() => setViewPlanId(row.id)}
           onPrint={() => printTreatmentPlan(row.id)}
           onShare={() => shareTreatmentPlan(row.id, row.patient?.firstName, row.patient?.lastName)}
         />
@@ -138,6 +140,16 @@ export function ManagerTreatmentsView() {
         onPageChange={setPage}
         emptyMessage="Nuk ka kontrolla"
         onRowClick={(row: any) => router.push(`${getPatientDetailPath('MANAGER', row.patientId)}?tab=trajtimet`)}
+      />
+
+      <PlanViewerDialog
+        planId={viewPlanId}
+        onClose={() => setViewPlanId(null)}
+        onPrint={() => viewPlanId && printTreatmentPlan(viewPlanId)}
+        onShare={() => {
+          const plan = plans.find((p: any) => p.id === viewPlanId);
+          return shareTreatmentPlan(viewPlanId!, plan?.patient?.firstName, plan?.patient?.lastName);
+        }}
       />
     </div>
   );
