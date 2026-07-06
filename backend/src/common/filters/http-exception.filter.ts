@@ -50,9 +50,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
       } else if (exception.code === 'P2025') {
         status = HttpStatus.NOT_FOUND;
         message = 'Rekordi nuk u gjet';
+      } else if (exception.code === 'P2003') {
+        status = HttpStatus.BAD_REQUEST;
+        message = 'Vlera e referuar nuk ekziston. Kontrolloni të dhënat dhe provoni përsëri.';
+        this.logger.error(`Prisma P2003 FK constraint: ${exception.message}`);
       } else {
         this.logger.error(`Prisma ${exception.code}: ${exception.message}`, exception.stack);
+        status = HttpStatus.INTERNAL_SERVER_ERROR;
+        message = 'Ndodhi një gabim gjatë operacionit në bazën e të dhënave.';
       }
+    } else if (exception instanceof Prisma.PrismaClientValidationError) {
+      this.logger.error(`Prisma validation: ${exception.message}`);
+      status = HttpStatus.BAD_REQUEST;
+      message = 'Të dhënat e dërguara nuk janë të vlefshme.';
     } else if (exception instanceof Error) {
       this.logger.error(exception.message, exception.stack);
     }

@@ -1,9 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { patientsApi, branchesApi } from '@/lib/api';
 import { sanitizeForm } from '@/lib/sanitize-form';
 import { useSession } from 'next-auth/react';
@@ -35,24 +36,39 @@ type FormData = z.infer<typeof schema>;
 export default function NewPatientPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const defaultBranchId = session?.user?.userBranches?.[0]?.branchId || '';
+  const queryClient = useQueryClient();
+
+  const role = session?.user?.role;
+  const isManager = role === 'MANAGER';
+  const managerBranchId = session?.user?.userBranches?.[0]?.branchId;
+  const managerBranchName = session?.user?.userBranches?.[0]?.branch?.name;
 
   const { data: branchesData } = useQuery({
     queryKey: ['branches'],
     queryFn: () => branchesApi.getAll(),
-  staleTime: 5 * 60_000,
+    staleTime: 5 * 60_000,
+    enabled: !isManager,
   });
   const branches = (branchesData as any)?.data || [];
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { branchId: defaultBranchId },
+    defaultValues: { branchId: '' },
   });
+
+  // Session is async — form initializes before it loads. Once we have the
+  // manager's branch, inject it so the field is never submitted empty.
+  useEffect(() => {
+    if (isManager && managerBranchId) {
+      form.setValue('branchId', managerBranchId, { shouldValidate: true });
+    }
+  }, [isManager, managerBranchId, form]);
 
   const mutation = useMutation({
     mutationFn: (data: FormData) => patientsApi.create(sanitizeForm(data)),
     onSuccess: () => {
       toast.success('Pacienti u regjistrua me sukses!');
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
       router.push(ROUTES.patients);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -131,22 +147,31 @@ export default function NewPatientPage() {
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="branchId" render={({ field }) => (
+              {isManager ? (
+                // Manager's branch is always their own — shown read-only so
+                // they know which branch the patient will be registered to.
                 <FormItem>
-                  <FormLabel>Dega *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Zgjidh degën" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {branches.map((b: any) => (
-                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+                  <FormLabel>Dega</FormLabel>
+                  <Input value={managerBranchName || 'Duke ngarkuar...'} disabled className="bg-muted" />
                 </FormItem>
-              )} />
+              ) : (
+                <FormField control={form.control} name="branchId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dega *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Zgjidh degën" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {branches.map((b: any) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
 
               <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem>
@@ -159,7 +184,11 @@ export default function NewPatientPage() {
                 <Button type="button" variant="outline" asChild>
                   <Link href={ROUTES.patients}>Anulo</Link>
                 </Button>
-                <Button type="submit" disabled={mutation.isPending} className="gradient-teal text-white border-0">
+                <Button
+                  type="submit"
+                  disabled={mutation.isPending || (isManager && !managerBranchId)}
+                  className="gradient-teal text-white border-0"
+                >
                   {mutation.isPending && <Loader2 size={14} className="mr-2 animate-spin" />}
                   Regjistro pacientin
                 </Button>

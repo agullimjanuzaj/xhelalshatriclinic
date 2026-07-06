@@ -200,12 +200,18 @@ export class PatientsService {
   }
 
   async create(dto: CreatePatientDto, user: any) {
-    // Manager can only create for their branch
+    let branchId: string;
+
     if (user.role === Role.MANAGER) {
-      const userBranchIds = user.userBranches?.map((ub: any) => ub.branchId) || [];
-      if (!userBranchIds.includes(dto.branchId)) {
-        throw new ForbiddenException('Nuk mund të regjistroni pacient në këtë degë');
+      // Branch always comes from the manager's own assignment — never trust
+      // the client-provided value, which may be empty or from another branch.
+      const userBranchIds: string[] = user.userBranches?.map((ub: any) => ub.branchId) || [];
+      if (!userBranchIds.length) {
+        throw new ForbiddenException('Menagjeri nuk ka degë të caktuar. Kontaktoni administratorin.');
       }
+      branchId = userBranchIds[0];
+    } else {
+      branchId = dto.branchId;
     }
 
     // A manager registers a patient because they're physically at the front
@@ -216,14 +222,15 @@ export class PatientsService {
     const expiresAt = activeInClinic ? await this.computeExpiresAt(since as Date) : null;
 
     const patient = await this.prisma.patient.create({
-      data: { ...dto, activeInClinic, status: null, activeInClinicSince: since, activeInClinicExpiresAt: expiresAt },
+      data: { ...dto, branchId, activeInClinic, status: null, activeInClinicSince: since, activeInClinicExpiresAt: expiresAt },
       include: { branch: { select: { id: true, name: true } } },
     });
 
     if (activeInClinic) {
-      await this.prisma.notification.createMany({
-        data: await this.getAdminUserIds().then((ids) =>
-          ids.map((userId) => ({
+      const adminIds = await this.getAdminUserIds();
+      if (adminIds.length) {
+        await this.prisma.notification.createMany({
+          data: adminIds.map((userId) => ({
             userId,
             senderId: user.id,
             type: 'NEW_PATIENT' as any,
@@ -231,8 +238,8 @@ export class PatientsService {
             message: `${patient.firstName} ${patient.lastName} u regjistrua në degën ${patient.branch?.name}`,
             data: { patientId: patient.id },
           })),
-        ),
-      });
+        });
+      }
       // A brand-new patient registered as already-active is the same event
       // branch physiotherapists need to know about as the toggle below.
       await this.notifyPatientActive(patient, user);
