@@ -12,6 +12,11 @@ export class CreateComplaintDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ description: 'Rajoni anatomik (p.sh. GJURI, CERVIKALE...)' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
   @ApiPropertyOptional({ description: 'Id-të e gjendjeve të sugjeruara që lidhen me këtë ankesë', isArray: true, type: String })
   @IsOptional()
   @IsArray()

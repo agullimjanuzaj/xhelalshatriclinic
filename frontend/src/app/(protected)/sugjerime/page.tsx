@@ -14,7 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { AlertCircle, Stethoscope, Loader2, RefreshCcw, Plus, Edit, Trash2, CheckCircle2, Link2 } from 'lucide-react';
+import { AlertCircle, Stethoscope, Loader2, RefreshCcw, Plus, Edit, Trash2, CheckCircle2, Link2, Tag } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -268,14 +269,28 @@ function SuggestedConditionsAdmin() {
 
 // ─── Admin: Ankesat kryesore + mapping management ─────────────────────────────
 
+const COMPLAINT_CATEGORIES = [
+  { id: 'CERVIKALE',    label: 'Cervikale' },
+  { id: 'TORAKALE',     label: 'Torakale' },
+  { id: 'LOMBOSAKRALE', label: 'Lombosakrale' },
+  { id: 'KRAHU',        label: 'Krahu' },
+  { id: 'BERRYLI',      label: 'Bërryli' },
+  { id: 'KYCI',         label: 'Kyçi' },
+  { id: 'KERDHOKULLA',  label: 'Kërdhokulla' },
+  { id: 'GJURI',        label: 'Gjuri' },
+  { id: 'SHPUTA',       label: 'Shputa' },
+];
+const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(COMPLAINT_CATEGORIES.map((c) => [c.id, c.label]));
+
 interface ComplaintFormState {
   id?: string;
   name: string;
   description: string;
+  category: string;
   suggestedConditionIds: string[];
 }
 
-const EMPTY_COMPLAINT_FORM: ComplaintFormState = { name: '', description: '', suggestedConditionIds: [] };
+const EMPTY_COMPLAINT_FORM: ComplaintFormState = { name: '', description: '', category: '', suggestedConditionIds: [] };
 
 function ComplaintsAdmin() {
   const queryClient = useQueryClient();
@@ -286,7 +301,7 @@ function ComplaintsAdmin() {
     queryKey: ['complaints'],
     queryFn: () => complaintsApi.getAll(),
   });
-  const complaints = extractList<{ id: string; name: string; description?: string; suggestedConditions: { id: string; name: string }[]; isActive: boolean }>(data);
+  const complaints = extractList<{ id: string; name: string; description?: string; category?: string; suggestedConditions: { id: string; name: string }[]; isActive: boolean }>(data);
 
   const { data: conditionsData } = useQuery({
     queryKey: ['suggested-conditions', 'active'],
@@ -302,6 +317,7 @@ function ComplaintsAdmin() {
     mutationFn: (d: ComplaintFormState) => complaintsApi.create({
       name: d.name.trim(),
       description: d.description.trim() || undefined,
+      category: d.category || undefined,
       suggestedConditionIds: d.suggestedConditionIds,
     }),
     onSuccess: () => { invalidate(); setDialogOpen(false); toast.success('Ankesa u shtua!'); },
@@ -312,6 +328,7 @@ function ComplaintsAdmin() {
     mutationFn: (d: ComplaintFormState) => complaintsApi.update(d.id!, {
       name: d.name.trim(),
       description: d.description.trim() || undefined,
+      category: d.category || undefined,
       suggestedConditionIds: d.suggestedConditionIds,
     }),
     onSuccess: () => { invalidate(); setDialogOpen(false); toast.success('Ankesa u përditësua!'); },
@@ -336,6 +353,7 @@ function ComplaintsAdmin() {
       id: c.id,
       name: c.name,
       description: c.description || '',
+      category: c.category || '',
       suggestedConditionIds: (c.suggestedConditions || []).map((sc: { id: string }) => sc.id),
     });
     setDialogOpen(true);
@@ -369,7 +387,14 @@ function ComplaintsAdmin() {
             <div key={c.id} className={cn('border rounded-xl p-3 flex items-start gap-3 transition-opacity', !c.isActive && 'opacity-50')}>
               <CheckCircle2 size={16} className={cn('mt-0.5 flex-shrink-0', c.isActive ? 'text-teal-500' : 'text-muted-foreground')} />
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">{c.name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-medium text-sm">{c.name}</p>
+                  {c.category && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-teal-700 border-teal-300 gap-1">
+                      <Tag size={9} />{CATEGORY_LABEL[c.category] || c.category}
+                    </Badge>
+                  )}
+                </div>
                 {c.description && <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>}
                 {c.suggestedConditions?.length > 0 ? (
                   <div className="flex flex-wrap gap-1 mt-1.5">
@@ -405,11 +430,28 @@ function ComplaintsAdmin() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
+              <label className="text-sm font-medium">Rajoni anatomik</label>
+              <Select
+                value={formState.category || '_none_'}
+                onValueChange={(v) => setFormState((s) => ({ ...s, category: v === '_none_' ? '' : v }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Zgjidh kategorinë" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">Pa kategori</SelectItem>
+                  {COMPLAINT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-sm font-medium">Emri i ankesës *</label>
               <Input
                 value={formState.name}
                 onChange={(e) => setFormState((s) => ({ ...s, name: e.target.value }))}
-                placeholder="Dhimbje shpine djathtas"
+                placeholder="Dhimbje gjuri gjatë ecjes"
                 className="mt-1"
               />
             </div>

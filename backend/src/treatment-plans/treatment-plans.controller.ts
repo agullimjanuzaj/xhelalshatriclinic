@@ -58,8 +58,8 @@ export class TreatmentPlansController {
   @Post('generate-complaint-description')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Gjenero përshkrimin e ankesave nga lista e ankesave të zgjedhura' })
-  generateComplaintDescription(@Body() dto: { complaints: string[] }) {
-    return this.service.generateComplaintDescription(dto.complaints);
+  generateComplaintDescription(@Body() dto: { complaints: string[]; category?: string }) {
+    return this.service.generateComplaintDescription(dto.complaints, dto.category);
   }
 
   @Put(':id')

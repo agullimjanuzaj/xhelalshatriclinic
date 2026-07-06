@@ -9,12 +9,13 @@ import { toast } from 'sonner';
 
 interface Props {
   complaints: string[];
+  category?: string;
   onGenerated: (text: string) => void;
 }
 
-export function GenerateComplaintDescriptionButton({ complaints, onGenerated }: Props) {
+export function GenerateComplaintDescriptionButton({ complaints, category, onGenerated }: Props) {
   const mutation = useMutation({
-    mutationFn: () => treatmentPlansApi.generateComplaintDescription(complaints),
+    mutationFn: () => treatmentPlansApi.generateComplaintDescription(complaints, category),
     onSuccess: (res: any) => {
       const data = extractItem<{ text: string; source: string }>(res);
       if (data?.text) onGenerated(data.text);

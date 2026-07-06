@@ -130,8 +130,8 @@ export const treatmentPlansApi = {
   delete: (id: string) => api.delete(`/treatment-plans/${id}`),
   generateNotes: (data: { diagnosis?: string; treatmentTypes?: string[]; totalSessions?: number; existingNotes?: string; complaints?: string[]; selectedDiagnoses?: string[] }) =>
     api.post('/treatment-plans/generate-notes', data),
-  generateComplaintDescription: (complaints: string[]) =>
-    api.post('/treatment-plans/generate-complaint-description', { complaints }),
+  generateComplaintDescription: (complaints: string[], category?: string) =>
+    api.post('/treatment-plans/generate-complaint-description', { complaints, category }),
 };
 
 export const sessionsApi = {
@@ -199,9 +199,9 @@ export const reportsApi = {
 
 export const complaintsApi = {
   getAll: (params?: { activeOnly?: boolean }) => api.get('/complaints', { params }),
-  create: (data: { name: string; description?: string; suggestedConditionIds?: string[] }) =>
+  create: (data: { name: string; description?: string; category?: string; suggestedConditionIds?: string[] }) =>
     api.post('/complaints', data),
-  update: (id: string, data: { name?: string; description?: string; suggestedConditionIds?: string[]; isActive?: boolean }) =>
+  update: (id: string, data: { name?: string; description?: string; category?: string; suggestedConditionIds?: string[]; isActive?: boolean }) =>
     api.patch(`/complaints/${id}`, data),
   setSuggestedConditions: (id: string, suggestedConditionIds: string[]) =>
     api.patch(`/complaints/${id}/suggested-conditions`, { suggestedConditionIds }),

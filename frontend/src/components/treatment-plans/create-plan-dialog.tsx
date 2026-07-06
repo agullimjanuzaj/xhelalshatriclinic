@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,8 +22,21 @@ import { GenerateNotesButton } from '@/components/treatment-plans/generate-notes
 import { GenerateComplaintDescriptionButton } from '@/components/treatment-plans/generate-complaint-description-button';
 import { DateInput } from '@/components/ui/date-input';
 import { useSuggestedConditions } from '@/hooks/use-suggested-conditions';
-import { Loader2, Building2, RefreshCcw, Sparkles } from 'lucide-react';
+import { Loader2, Building2, RefreshCcw, Sparkles, Brain, Heart, Activity, ArrowUpRight, CornerDownRight, Link2, Circle, Triangle, MapPin } from 'lucide-react';
 import { formatCurrency, extractList } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+
+const ANATOMICAL_CATEGORIES = [
+  { id: 'CERVIKALE',    label: 'Cervikale',    Icon: Brain },
+  { id: 'TORAKALE',     label: 'Torakale',     Icon: Heart },
+  { id: 'LOMBOSAKRALE', label: 'Lombosakrale', Icon: Activity },
+  { id: 'KRAHU',        label: 'Krahu',        Icon: ArrowUpRight },
+  { id: 'BERRYLI',      label: 'Bërryli',      Icon: CornerDownRight },
+  { id: 'KYCI',         label: 'Kyçi',         Icon: Link2 },
+  { id: 'KERDHOKULLA',  label: 'Kërdhokulla',  Icon: Circle },
+  { id: 'GJURI',        label: 'Gjuri',        Icon: Triangle },
+  { id: 'SHPUTA',       label: 'Shputa',       Icon: MapPin },
+] as const;
 
 const schema = z.object({
   patientId: z.string().uuid('Pacienti është i detyrueshëm'),
@@ -56,6 +69,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
   const role = session?.user?.role;
   const isAdmin = role === 'ADMIN';
   const isEdit = !!plan;
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Manager and physiotherapist may not create or edit Kontrolla — only ADMIN.
   if (!isAdmin) return null;
@@ -82,7 +96,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
     enabled: open,
     staleTime: 5 * 60_000,
   });
-  const complaintOptions = extractList<{ id: string; name: string; suggestedConditions: { id: string; name: string }[] }>(complaintsData);
+  const complaintOptions = extractList<{ id: string; name: string; category?: string; suggestedConditions: { id: string; name: string }[] }>(complaintsData);
 
   const defaultValues = useMemo<FormData>(() => plan ? {
     patientId: plan.patientId,
@@ -126,8 +140,18 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
     if (open) {
       form.reset(defaultValues);
       prevSelectedDiagnosesRef.current = defaultValues.selectedDiagnoses || [];
+      setSelectedCategory(null);
     }
   }, [open, defaultValues, form]);
+
+  // In edit mode, restore selectedCategory once complaint options are loaded
+  useEffect(() => {
+    if (open && isEdit && complaintOptions.length > 0 && plan?.complaints?.length) {
+      const matched = complaintOptions.find((c) => (plan.complaints as string[]).includes(c.name));
+      if (matched?.category) setSelectedCategory(matched.category);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isEdit, complaintOptions.length]);
 
   // Branch is never picked manually — it always follows the selected patient.
   const watchedPatientId = form.watch('patientId');
@@ -290,45 +314,84 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
               </FormItem>
             )} />
 
-            {/* Ankesat kryesore — dynamic complaints from admin-managed list */}
+            {/* Ankesat kryesore — anatomical category picker → filtered complaint list */}
             {complaintOptions.length > 0 && (
               <FormField control={form.control} name="complaints" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Ankesat kryesore</FormLabel>
-                  <div className="grid grid-cols-2 gap-2 border rounded-lg p-3 max-h-40 overflow-y-auto">
-                    {complaintOptions.map((c) => (
-                      <div key={c.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`complaint-${c.id}`}
-                          checked={(field.value || []).includes(c.name)}
-                          onCheckedChange={(checked) => {
-                            const current = field.value || [];
-                            const next = checked ? [...current, c.name] : current.filter((x) => x !== c.name);
-                            field.onChange(next);
-
-                            // Unchecking a complaint cleans up any of its
-                            // diagnoses that no other still-checked complaint
-                            // also suggests — but checking one no longer
-                            // auto-adds anything; that now only happens via
-                            // the explicit "Merr sugjerime" button below, to
-                            // match the /sugjerime page's click-to-fetch flow.
-                            if (!checked) {
-                              const curDiag = form.getValues('selectedDiagnoses') || [];
-                              const stillSuggested = new Set(
-                                complaintOptions
-                                  .filter((opt) => next.includes(opt.name))
-                                  .flatMap((opt) => (opt.suggestedConditions || []).map((sc) => sc.name)),
+                  {/* Step 1: pick anatomical region */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {ANATOMICAL_CATEGORIES.map(({ id, label, Icon }) => {
+                      const isActive = selectedCategory === id;
+                      const hasChecked = (field.value || []).some((name) =>
+                        complaintOptions.find((c) => c.name === name && c.category === id),
+                      );
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            if (selectedCategory !== id) {
+                              setSelectedCategory(id);
+                              // Clear complaints from other categories
+                              const keep = (field.value || []).filter((name) =>
+                                complaintOptions.find((c) => c.name === name && c.category === id),
                               );
-                              const thisComplaintConditions = (c.suggestedConditions || []).map((sc: { name: string }) => sc.name);
-                              const toRemove = new Set(thisComplaintConditions.filter((d: string) => !stillSuggested.has(d)));
-                              form.setValue('selectedDiagnoses', curDiag.filter((d) => !toRemove.has(d)));
+                              field.onChange(keep);
                             }
                           }}
-                        />
-                        <label htmlFor={`complaint-${c.id}`} className="text-sm cursor-pointer">{c.name}</label>
-                      </div>
-                    ))}
+                          className={cn(
+                            'flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-colors cursor-pointer',
+                            isActive
+                              ? 'border-teal-500 bg-teal-50 text-teal-700'
+                              : 'border-border bg-background text-muted-foreground hover:border-teal-300 hover:text-teal-600',
+                            hasChecked && !isActive && 'border-teal-300 text-teal-600',
+                          )}
+                        >
+                          <Icon size={18} className="flex-shrink-0" />
+                          <span className="text-[10px] font-medium leading-tight">{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {/* Step 2: show complaints for selected category */}
+                  {selectedCategory && (() => {
+                    const filtered = complaintOptions.filter((c) => c.category === selectedCategory);
+                    return filtered.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-1.5 border rounded-lg p-3 mt-1 bg-teal-50/40 max-h-44 overflow-y-auto">
+                        {filtered.map((c) => (
+                          <div key={c.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`complaint-${c.id}`}
+                              checked={(field.value || []).includes(c.name)}
+                              onCheckedChange={(checked) => {
+                                const current = field.value || [];
+                                const next = checked ? [...current, c.name] : current.filter((x) => x !== c.name);
+                                field.onChange(next);
+                                if (!checked) {
+                                  const curDiag = form.getValues('selectedDiagnoses') || [];
+                                  const stillSuggested = new Set(
+                                    complaintOptions
+                                      .filter((opt) => next.includes(opt.name))
+                                      .flatMap((opt) => (opt.suggestedConditions || []).map((sc) => sc.name)),
+                                  );
+                                  const thisConditions = (c.suggestedConditions || []).map((sc: { name: string }) => sc.name);
+                                  const toRemove = new Set(thisConditions.filter((d: string) => !stillSuggested.has(d)));
+                                  form.setValue('selectedDiagnoses', curDiag.filter((d) => !toRemove.has(d)));
+                                }
+                              }}
+                            />
+                            <label htmlFor={`complaint-${c.id}`} className="text-sm cursor-pointer">{c.name}</label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-2 py-2 text-center border rounded-lg">
+                        Nuk ka ankesa për këtë kategori — shtoji te "Sugjerime" → "Ankesat kryesore"
+                      </p>
+                    );
+                  })()}
                   <FormMessage />
                 </FormItem>
               )} />
@@ -341,6 +404,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                   <FormLabel>Përshkrimi i ankesave</FormLabel>
                   <GenerateComplaintDescriptionButton
                     complaints={watchedComplaints}
+                    category={selectedCategory ?? undefined}
                     onGenerated={(text) => {
                       if (watchedComplaintDescription.trim() && !window.confirm('Përshkrimi ekzistues do të zëvendësohet. Vazhdo?')) return;
                       form.setValue('complaintDescription', text);

@@ -27,9 +27,9 @@ export class TreatmentPlansService {
     return { text: fallback, source: 'fallback' };
   }
 
-  async generateComplaintDescription(complaints: string[]): Promise<{ text: string; source: 'gemini' | 'fallback' }> {
+  async generateComplaintDescription(complaints: string[], category?: string): Promise<{ text: string; source: 'gemini' | 'fallback' }> {
     if (!complaints?.length) throw new BadRequestException('Zgjidhni të paktën një ankesë');
-    const aiText = await this.geminiService.generateComplaintDescription({ complaints });
+    const aiText = await this.geminiService.generateComplaintDescription({ complaints, category });
     if (aiText) return { text: aiText, source: 'gemini' };
     // Simple fallback: join complaints into a sentence
     const fallback = `Pacienti ankon kryesisht për: ${complaints.join(', ')}.`;

@@ -18,6 +18,7 @@ export interface GenerateRecommendationInput {
 
 export interface GenerateComplaintDescriptionInput {
   complaints: string[];
+  category?: string;
 }
 
 export interface AiResult {
@@ -166,10 +167,26 @@ export class GeminiService {
   }
 
   private buildComplaintDescriptionPrompt(input: GenerateComplaintDescriptionInput): string {
-    const { complaints } = input;
-    return [
+    const { complaints, category } = input;
+    const CATEGORY_LABELS: Record<string, string> = {
+      CERVIKALE: 'Cervikale (qafë/qafëzë)',
+      TORAKALE: 'Torakale (shpinë e sipërme)',
+      LOMBOSAKRALE: 'Lombosakrale (mesi/shpina e poshtme)',
+      KRAHU: 'Krahu dhe shpatulla',
+      BERRYLI: 'Bërryli',
+      KYCI: 'Kyçi (dore ose këmbe)',
+      KERDHOKULLA: 'Kërdhokulla (ijë/pelvik)',
+      GJURI: 'Gjuri',
+      SHPUTA: 'Shputa dhe zogu i këmbës',
+    };
+    const lines = [
       'Ti je një fizioterapeut klinik që po dokumenton historikun e ankesave të pacientit.',
       '',
+    ];
+    if (category && CATEGORY_LABELS[category]) {
+      lines.push(`Rajoni anatomik: ${CATEGORY_LABELS[category]}`);
+    }
+    lines.push(
       `Ankesat kryesore të raportuar nga pacienti: ${complaints.join(', ')}`,
       '',
       'Shkruaj një përshkrim të shkurtër klinik (40-80 fjalë) të ankesave në shqip, që:',
@@ -181,7 +198,8 @@ export class GeminiService {
       '6. Nuk përfshin rekomandime trajtimi — vetëm dokumentim ankesash',
       '',
       'Shkruaje direkt përshkrimin (plain text, 40-80 fjalë):',
-    ].join('\n');
+    );
+    return lines.join('\n');
   }
 
   private buildRecommendationPrompt(input: GenerateRecommendationInput): string {

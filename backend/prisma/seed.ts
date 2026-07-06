@@ -255,32 +255,72 @@ async function main() {
   console.log('✅ Gjendjet e sugjeruara u krijuan');
 
   // ==========================================
-  // ANKESAT KRYESORE (example complaints — never overwritten if already
-  // edited by an admin; `update: {}` is a no-op when the row already exists)
+  // ANKESAT KRYESORE — anatomical categories with canonical complaint list.
+  // New complaints are upserted (name is unique key). Category is always
+  // written so re-running the seed keeps it up to date even if an admin
+  // cleared it accidentally.  Scalar fields (name, category) are updated;
+  // suggested-condition links are managed separately below.
   // ==========================================
-  const EXAMPLE_COMPLAINTS = [
-    'Dhimbje gjuri djathtas', 'Dhimbje gjuri majtas',
-    'Dhimbje këmbë djathtas', 'Dhimbje këmbë majtas',
-    'Dhimbje qafe djathtas', 'Dhimbje qafe majtas',
-    'Dhimbje shpine djathtas', 'Dhimbje shpine majtas',
+  const CANONICAL_COMPLAINTS: { name: string; category: string }[] = [
+    { name: 'Dhimbje në qafë që përhapet në krah', category: 'CERVIKALE' },
+    { name: 'Marramendje', category: 'CERVIKALE' },
+    { name: 'Mpirje dhe dobësi në dorë', category: 'CERVIKALE' },
+    { name: 'Dhimbje në pjesën e sipërme të shpinës', category: 'TORAKALE' },
+    { name: 'Dhimbje mesi që përhapet në këmbën e djathtë', category: 'LOMBOSAKRALE' },
+    { name: 'Dhimbje e krahut të djathtë', category: 'KRAHU' },
+    { name: 'Dhimbje në shpatullën e majtë', category: 'KRAHU' },
+    { name: 'Dhimbje në pjesën e brendshme të bërrylit', category: 'BERRYLI' },
+    { name: 'Dhimbje në pjesën e jashtme të bërrylit', category: 'BERRYLI' },
+    { name: 'Dhimbje në kyçin e dorës me mpirje të gishtave', category: 'KYCI' },
+    { name: 'Dhimbje në kyçin e këmbës', category: 'KYCI' },
+    { name: 'Dhimbje në ijë gjatë ecjes', category: 'KERDHOKULLA' },
+    { name: 'Dhimbje në vithe', category: 'KERDHOKULLA' },
+    { name: 'Dhembje gjuri', category: 'GJURI' },
+    { name: 'Dhimbje dhe ënjtje në gju', category: 'GJURI' },
+    { name: 'Dhimbje gjuri gjatë ecjes ose ngjitjes së shkallëve', category: 'GJURI' },
+    { name: 'Dhimbje në tendinën e Akilit', category: 'SHPUTA' },
+    { name: 'Dhimbje në thembër', category: 'SHPUTA' },
   ];
-  for (const name of EXAMPLE_COMPLAINTS) {
-    await prisma.complaint.upsert({ where: { name }, update: {}, create: { name } });
+
+  for (const { name, category } of CANONICAL_COMPLAINTS) {
+    await prisma.complaint.upsert({ where: { name }, update: { category }, create: { name, category } });
   }
-  console.log('✅ Ankesat kryesore (shembuj) u krijuan');
+  console.log(`✅ Ankesat kryesore (${CANONICAL_COMPLAINTS.length}) u krijuan/u përditësuan me kategori`);
+
+  // Migrate legacy seed complaints (old format without category) to their
+  // anatomical category — only when category is still null, so any admin
+  // edit of the category is never overwritten.
+  const LEGACY_CATEGORY_MAP: Record<string, string> = {
+    'Dhimbje gjuri djathtas': 'GJURI',
+    'Dhimbje gjuri majtas': 'GJURI',
+    'Dhimbje këmbë djathtas': 'LOMBOSAKRALE',
+    'Dhimbje këmbë majtas': 'LOMBOSAKRALE',
+    'Dhimbje qafe djathtas': 'CERVIKALE',
+    'Dhimbje qafe majtas': 'CERVIKALE',
+    'Dhimbje shpine djathtas': 'LOMBOSAKRALE',
+    'Dhimbje shpine majtas': 'LOMBOSAKRALE',
+  };
+  for (const [name, category] of Object.entries(LEGACY_CATEGORY_MAP)) {
+    await prisma.complaint.updateMany({ where: { name, category: null, deletedAt: null }, data: { category } });
+  }
+  console.log('✅ Migrim kategorish për ankesat ekzistuese u krye');
 
   // ==========================================
   // MAPPING ANKESA → GJENDJE — keyword-matched so this also covers any
-  // complaint an admin already created before this mapping system existed
-  // (e.g. "Dhimbje kembe djathtas" without the ë). Only complaints with NO
-  // existing links get auto-linked, so manual admin curation is never
-  // overwritten by re-running this seed.
+  // complaint an admin already created before this mapping system existed.
+  // Only complaints with NO existing links get auto-linked, so manual admin
+  // curation is never overwritten by re-running this seed.
   // ==========================================
   const KEYWORD_GROUPS: { keywords: string[]; conditions: string[] }[] = [
-    { keywords: ['gjuri'], conditions: ['Gonarthrosis', 'Meniscus injury', 'Tendinitis'] },
-    { keywords: ['kemb', 'këmb'], conditions: ['Lumboischialgia', 'Sciatica', 'Muscle strain'] },
-    { keywords: ['qaf'], conditions: ['Cervicalgia', 'Disc Herniation', 'Muscle strain'] },
-    { keywords: ['shpin'], conditions: ['Lumboischialgia', 'Disc Herniation', 'Muscle strain'] },
+    { keywords: ['gjuri', 'gju'], conditions: ['Gonarthrosis', 'Meniscus injury', 'Tendinitis'] },
+    { keywords: ['kemb', 'këmb', 'mesi', 'lombo'], conditions: ['Lumboischialgia', 'Sciatica', 'Muscle strain'] },
+    { keywords: ['qaf', 'cervik', 'marramendje', 'mpirje'], conditions: ['Cervicalgia', 'Disc Herniation', 'Muscle strain'] },
+    { keywords: ['shpin', 'torak'], conditions: ['Lumboischialgia', 'Disc Herniation', 'Muscle strain'] },
+    { keywords: ['krah', 'shpatull'], conditions: ['Muscle strain', 'Tendinitis'] },
+    { keywords: ['berryl', 'bërryl', 'bërryli'], conditions: ['Tendinitis', 'Muscle strain'] },
+    { keywords: ['kyç', 'kyci', 'dor', 'gisht'], conditions: ['Disc Herniation', 'Muscle strain'] },
+    { keywords: ['kërdhokull', 'kerdhokull', 'ijë', 'vithe'], conditions: ['Lumboischialgia', 'Muscle strain'] },
+    { keywords: ['thembër', 'akil', 'shput'], conditions: ['Tendinitis', 'Muscle strain'] },
   ];
 
   const allComplaints = await prisma.complaint.findMany({
