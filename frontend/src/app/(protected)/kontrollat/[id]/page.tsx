@@ -71,7 +71,7 @@ export default function TreatmentPlanDetailPage() {
     <div className="min-h-full -m-4 lg:-m-6 flex flex-col">
 
       {/* Sticky header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-4 lg:px-6 py-3 flex items-center justify-between gap-3 shrink-0">
+      <div className="sticky -top-4 lg:-top-6 z-20 bg-background border-b px-4 lg:px-6 py-3 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Button
             variant="ghost"
