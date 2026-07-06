@@ -331,10 +331,10 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                           type="button"
                           onClick={() => setSelectedCategory(selectedCategory === id ? null : id)}
                           className={cn(
-                            'relative flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-colors cursor-pointer',
+                            'relative flex flex-col items-center gap-1.5 rounded-lg border bg-white p-2 text-center cursor-pointer transition-all duration-200',
                             isActive
-                              ? 'border-teal-500 bg-teal-50 text-teal-700'
-                              : 'border-border bg-background text-muted-foreground hover:border-teal-300 hover:text-teal-600',
+                              ? 'border-2 border-teal-500 shadow-md text-teal-700'
+                              : 'border-border text-muted-foreground hover:border-teal-300 hover:shadow-sm hover:text-teal-600',
                             count > 0 && !isActive && 'border-teal-300 text-teal-600',
                           )}
                         >
@@ -343,7 +343,14 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                               {count}
                             </span>
                           )}
-                          <img src={img} alt={label} className="w-6 h-6 object-contain flex-shrink-0" />
+                          <img
+                            src={img}
+                            alt={label}
+                            className={cn(
+                              'w-[4.5rem] h-[4.5rem] object-contain flex-shrink-0',
+                              isActive ? 'opacity-100' : 'opacity-70',
+                            )}
+                          />
                           <span className="text-[10px] font-medium leading-tight">{label}</span>
                         </button>
                       );
