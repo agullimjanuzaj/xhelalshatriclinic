@@ -51,8 +51,10 @@ export default function TreatmentPlanDetailPage() {
     retry: false,
   });
 
-  // API interceptor already extracts response.data — `data` IS the plan object
-  const plan = data as any;
+  // API interceptor extracts response.data (HTTP body), but the global
+  // TransformInterceptor wraps every response as { success, data } — so the
+  // actual plan object is one level deeper at .data.
+  const plan = (data as any)?.data;
   const patient = plan?.patient;
   const allSessions = plan?.sessions || [];
 

@@ -139,7 +139,7 @@ export class SessionsService {
         throw new ForbiddenException('Nuk keni qasje në këtë seancë');
       }
     } else if (user.role === Role.PHYSIOTHERAPIST) {
-      if (session.physiotherapistId !== user.id) {
+      if (session.physiotherapistId !== user.id && session.completedByUserId !== user.id) {
         throw new ForbiddenException('Nuk keni qasje në këtë seancë');
       }
     }

@@ -71,8 +71,10 @@ export default function SessionDetailPage() {
     retry: false,
   });
 
-  // API interceptor already extracts response.data — `data` IS the session object directly
-  const session = data as any;
+  // API interceptor extracts response.data (HTTP body), but the global
+  // TransformInterceptor wraps every response as { success, data } — so the
+  // actual session object is one level deeper at .data.
+  const session = (data as any)?.data;
   const patient = session?.patient;
   const physio = session?.physiotherapist || session?.completedByUser;
 
