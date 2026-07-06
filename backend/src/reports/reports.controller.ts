@@ -110,14 +110,19 @@ export class ReportsController {
 
   @Get('patient-visits')
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: 'Lista e vizitave të pacientëve (një rresht për seancë)' })
+  @ApiOperation({ summary: 'Lista e vizitave të pacientëve (një rresht për seancë, me pagination)' })
   getPatientVisits(
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
     @Query('branchId') branchId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @CurrentUser() user?: any,
   ) {
-    return this.reportsService.getPatientVisits({ dateFrom, dateTo, branchId }, user);
+    return this.reportsService.getPatientVisits(
+      { dateFrom, dateTo, branchId, page: Number(page) || 1, limit: Number(limit) || 24 },
+      user,
+    );
   }
 
   @Get('patient-visits/export')

@@ -186,7 +186,7 @@ export const reportsApi = {
     api.get('/reports/patient-activity', { params: { branchId } }),
   getBonuses: (params?: { month?: string; dateFrom?: string; dateTo?: string; userId?: string; branchId?: string }) =>
     api.get('/reports/bonuses', { params }),
-  getPatientVisits: (params?: { dateFrom?: string; dateTo?: string; branchId?: string }) =>
+  getPatientVisits: (params?: { dateFrom?: string; dateTo?: string; branchId?: string; page?: number; limit?: number }) =>
     api.get('/reports/patient-visits', { params }),
   exportPatientVisits: async (params?: { dateFrom?: string; dateTo?: string; branchId?: string }) => {
     const response = await api.get('/reports/patient-visits/export', {

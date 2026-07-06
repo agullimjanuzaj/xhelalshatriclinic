@@ -509,24 +509,20 @@ export class ReportsService {
   }
 
   // ── Patient Visits ─────────────────────────────────────────────────────────
-  // One row per completed session. Default period: last full calendar month.
-
-  private defaultLastMonth(): { from: Date; to: Date } {
-    const now = dayjs();
-    const lastMonth = now.subtract(1, 'month');
-    return {
-      from: lastMonth.startOf('month').toDate(),
-      to: lastMonth.endOf('month').toDate(),
-    };
-  }
+  // One row per completed session.
+  // If dateFrom/dateTo are absent (or empty string), no date filter is applied.
 
   private buildVisitSessionWhere(filter: { dateFrom?: string; dateTo?: string; branchId?: string }, user: any) {
     const where: any = { deletedAt: null, status: 'COMPLETED' };
 
-    let { from, to } = this.defaultLastMonth();
-    if (filter.dateFrom) from = dayjs(filter.dateFrom).startOf('day').toDate();
-    if (filter.dateTo) to = dayjs(filter.dateTo).endOf('day').toDate();
-    where.completedAt = { gte: from, lte: to };
+    const from = filter.dateFrom ? dayjs(filter.dateFrom).startOf('day').toDate() : null;
+    const to = filter.dateTo ? dayjs(filter.dateTo).endOf('day').toDate() : null;
+    if (from || to) {
+      where.completedAt = {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lte: to } : {}),
+      };
+    }
 
     if (user.role === 'MANAGER') {
       const userBranchIds: string[] = user.userBranches?.map((ub: any) => ub.branchId) || [];
@@ -539,22 +535,8 @@ export class ReportsService {
     return where;
   }
 
-  async getPatientVisits(filter: { dateFrom?: string; dateTo?: string; branchId?: string }, user: any) {
-    const where = this.buildVisitSessionWhere(filter, user);
-
-    const sessions = await this.prisma.session.findMany({
-      where,
-      orderBy: { completedAt: 'asc' },
-      take: 2000,
-      include: {
-        patient: { select: { firstName: true, lastName: true, birthDate: true } },
-        branch: { select: { name: true } },
-        physiotherapist: { select: { firstName: true, lastName: true } },
-        treatmentPlan: { select: { diagnosis: true, treatmentTypes: true } },
-      },
-    });
-
-    return sessions.map((s: any) => ({
+  private mapVisitSession(s: any) {
+    return {
       patientFirstName: s.patient?.firstName || '',
       patientLastName: s.patient?.lastName || '',
       birthDate: s.patient?.birthDate ? dayjs(s.patient.birthDate).format('DD/MM/YYYY') : '',
@@ -563,40 +545,65 @@ export class ReportsService {
       treatment: s.treatmentPlan?.diagnosis || (s.treatmentPlan?.treatmentTypes?.join(', ')) || '',
       physiotherapist: s.physiotherapist ? `${s.physiotherapist.firstName} ${s.physiotherapist.lastName}` : '',
       notes: s.notes || '',
-    }));
+    };
+  }
+
+  private readonly visitSessionInclude = {
+    patient: { select: { firstName: true, lastName: true, birthDate: true } },
+    branch: { select: { name: true } },
+    physiotherapist: { select: { firstName: true, lastName: true } },
+    treatmentPlan: { select: { diagnosis: true, treatmentTypes: true } },
+  };
+
+  async getPatientVisits(
+    filter: { dateFrom?: string; dateTo?: string; branchId?: string; page?: number; limit?: number },
+    user: any,
+  ) {
+    const where = this.buildVisitSessionWhere(filter, user);
+    const page = Math.max(1, Number(filter.page) || 1);
+    const limit = Math.max(1, Number(filter.limit) || 24);
+    const skip = (page - 1) * limit;
+
+    const [sessions, total] = await Promise.all([
+      this.prisma.session.findMany({
+        where,
+        orderBy: { completedAt: 'asc' },
+        skip,
+        take: limit,
+        include: this.visitSessionInclude,
+      }),
+      this.prisma.session.count({ where }),
+    ]);
+
+    return { data: sessions.map((s) => this.mapVisitSession(s)), meta: buildPaginationMeta(total, page, limit) };
   }
 
   async exportPatientVisitsExcel(filter: { dateFrom?: string; dateTo?: string; branchId?: string }, user: any): Promise<{ buffer: Buffer; filename: string }> {
-    const rows = await this.getPatientVisits(filter, user);
+    const where = this.buildVisitSessionWhere(filter, user);
+
+    const sessions = await this.prisma.session.findMany({
+      where,
+      orderBy: { completedAt: 'asc' },
+      include: this.visitSessionInclude,
+    });
+
+    const rows = sessions.map((s) => this.mapVisitSession(s));
 
     const wsData = [
       ['Emri', 'Mbiemri', 'Data e lindjes', 'Dega', 'Data e paraqitjes', 'Trajtimi', 'Fizioterapeuti', 'Shënim'],
-      ...rows.map((r: any) => [
-        r.patientFirstName,
-        r.patientLastName,
-        r.birthDate,
-        r.branch,
-        r.visitDate,
-        r.treatment,
-        r.physiotherapist,
-        r.notes,
-      ]),
+      ...rows.map((r) => [r.patientFirstName, r.patientLastName, r.birthDate, r.branch, r.visitDate, r.treatment, r.physiotherapist, r.notes]),
     ];
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-    // Column widths
     ws['!cols'] = [
       { wch: 14 }, { wch: 14 }, { wch: 15 }, { wch: 18 },
       { wch: 16 }, { wch: 30 }, { wch: 20 }, { wch: 30 },
     ];
-
     XLSX.utils.book_append_sheet(wb, ws, 'Pacientët');
 
-    const dateFrom = filter.dateFrom || dayjs().subtract(1, 'month').startOf('month').format('DD-MM-YYYY');
-    const dateTo = filter.dateTo || dayjs().subtract(1, 'month').endOf('month').format('DD-MM-YYYY');
-    const filename = `Raporti_Pacienteve_${dateFrom}_${dateTo}.xlsx`;
+    const dateLabel = (d: string | undefined) => d ? dayjs(d).format('DD-MM-YYYY') : 'te-gjitha';
+    const filename = `Raporti_Pacienteve_${dateLabel(filter.dateFrom)}_${dateLabel(filter.dateTo)}.xlsx`;
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
     return { buffer, filename };

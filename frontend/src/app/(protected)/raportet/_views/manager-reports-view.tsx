@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { reportsApi, usersApi } from '@/lib/api';
-import { extractList } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import { useReportsFilters } from '@/hooks/use-reports-filters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +23,8 @@ function getLastMonthRange() {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const last = new Date(now.getFullYear(), now.getMonth(), 0);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   return { from: fmt(first), to: fmt(last) };
 }
 
@@ -94,15 +94,18 @@ export function ManagerReportsView() {
   const lm = getLastMonthRange();
   const [visitsFrom, setVisitsFrom] = useState(lm.from);
   const [visitsTo, setVisitsTo] = useState(lm.to);
-  const [visitsApplied, setVisitsApplied] = useState({ dateFrom: lm.from, dateTo: lm.to });
+  const [visitsApplied, setVisitsApplied] = useState<{ dateFrom?: string; dateTo?: string }>({ dateFrom: lm.from, dateTo: lm.to });
+  const [visitsPage, setVisitsPage] = useState(1);
   const [visitsExporting, setVisitsExporting] = useState(false);
 
   const { data: visitsData, isLoading: visitsLoading } = useQuery({
-    queryKey: ['report-patient-visits-manager', branchId, visitsApplied],
-    queryFn: () => reportsApi.getPatientVisits({ ...visitsApplied, branchId }),
+    queryKey: ['report-patient-visits-manager', branchId, visitsApplied, visitsPage],
+    queryFn: () => reportsApi.getPatientVisits({ ...visitsApplied, branchId, page: visitsPage, limit: 24 }),
     enabled: !!branchId,
+    placeholderData: keepPreviousData,
   });
-  const visits = extractList<any>(visitsData);
+  const visits = (visitsData as any)?.data || [];
+  const visitsMeta = (visitsData as any)?.meta;
 
   async function handleVisitsExport() {
     setVisitsExporting(true);
@@ -312,7 +315,7 @@ export function ManagerReportsView() {
               <label className="text-xs text-muted-foreground">Deri në datë</label>
               <ClearableDateInput value={visitsTo} onChange={setVisitsTo} onClear={() => setVisitsTo('')} className="w-40" />
             </div>
-            <Button onClick={() => setVisitsApplied({ dateFrom: visitsFrom, dateTo: visitsTo })} className="gap-2 gradient-teal text-white border-0" size="sm">
+            <Button onClick={() => { setVisitsPage(1); setVisitsApplied({ dateFrom: visitsFrom || undefined, dateTo: visitsTo || undefined }); }} className="gap-2 gradient-teal text-white border-0" size="sm">
               <Filter size={14} />Filtro
             </Button>
             <Button onClick={handleVisitsExport} disabled={visitsExporting || visitsLoading} variant="outline" size="sm" className="gap-2">
@@ -333,6 +336,8 @@ export function ManagerReportsView() {
               ]}
               data={visits}
               emptyMessage="Nuk ka vizita për periudhën e zgjedhur"
+              pagination={visitsMeta}
+              onPageChange={setVisitsPage}
             />
           )}
         </CardContent>

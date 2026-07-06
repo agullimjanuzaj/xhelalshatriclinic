@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { reportsApi, usersApi, branchesApi } from '@/lib/api';
 import { useReportsFilters } from '@/hooks/use-reports-filters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { PaymentBadge } from '@/components/ui/payment-badge';
 import { StatsCard } from '@/components/ui/stats-card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatCurrency, formatCount, extractList } from '@/lib/utils';
+import { formatCurrency, formatCount } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter, Download, Loader2 } from 'lucide-react';
@@ -22,9 +22,13 @@ const ALL = '__all__';
 
 function getLastMonthRange() {
   const now = new Date();
+  // new Date(year, month-1, 1) handles month=0 (January) correctly:
+  // month-1=-1 → December of the previous year (JS Date wraps negative months).
   const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  // day 0 of current month = last day of previous month (e.g. June 30, Jan 31)
   const last = new Date(now.getFullYear(), now.getMonth(), 0);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   return { from: fmt(first), to: fmt(last) };
 }
 
@@ -33,11 +37,12 @@ export function AdminReportsView() {
   const [outstandingPage, setOutstandingPage] = useState(1);
   useEffect(() => { setOutstandingPage(1); }, [f.applied]);
 
-  // Patient visits tab — own filter state, default = last full month
+  // Patient visits tab — own filter state, default = last full calendar month
   const lm = getLastMonthRange();
   const [visitsFrom, setVisitsFrom] = useState(lm.from);
   const [visitsTo, setVisitsTo] = useState(lm.to);
-  const [visitsApplied, setVisitsApplied] = useState({ dateFrom: lm.from, dateTo: lm.to });
+  const [visitsApplied, setVisitsApplied] = useState<{ dateFrom?: string; dateTo?: string }>({ dateFrom: lm.from, dateTo: lm.to });
+  const [visitsPage, setVisitsPage] = useState(1);
   const [visitsExporting, setVisitsExporting] = useState(false);
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
 
@@ -96,11 +101,13 @@ export function AdminReportsView() {
   });
 
   const { data: visitsData, isLoading: visitsLoading } = useQuery({
-    queryKey: ['report-patient-visits', visitsApplied],
-    queryFn: () => reportsApi.getPatientVisits(visitsApplied),
+    queryKey: ['report-patient-visits', visitsApplied, visitsPage],
+    queryFn: () => reportsApi.getPatientVisits({ ...visitsApplied, page: visitsPage, limit: 24 }),
+    placeholderData: keepPreviousData,
   });
 
-  const visits = extractList<any>(visitsData);
+  const visits = (visitsData as any)?.data || [];
+  const visitsMeta = (visitsData as any)?.meta;
 
   async function handleVisitsExport() {
     setVisitsExporting(true);
@@ -403,7 +410,10 @@ export function AdminReportsView() {
                   <ClearableDateInput value={visitsTo} onChange={setVisitsTo} onClear={() => setVisitsTo('')} className="w-40" />
                 </div>
                 <Button
-                  onClick={() => setVisitsApplied({ dateFrom: visitsFrom, dateTo: visitsTo })}
+                  onClick={() => {
+                    setVisitsPage(1);
+                    setVisitsApplied({ dateFrom: visitsFrom || undefined, dateTo: visitsTo || undefined });
+                  }}
                   className="gap-2 gradient-teal text-white border-0"
                   size="sm"
                 >
@@ -436,6 +446,8 @@ export function AdminReportsView() {
                   ]}
                   data={visits}
                   emptyMessage="Nuk ka vizita për periudhën e zgjedhur"
+                  pagination={visitsMeta}
+                  onPageChange={setVisitsPage}
                 />
               )}
             </CardContent>
