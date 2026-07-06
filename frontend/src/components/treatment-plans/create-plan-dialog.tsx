@@ -22,20 +22,24 @@ import { GenerateNotesButton } from '@/components/treatment-plans/generate-notes
 import { GenerateComplaintDescriptionButton } from '@/components/treatment-plans/generate-complaint-description-button';
 import { DateInput } from '@/components/ui/date-input';
 import { useSuggestedConditions } from '@/hooks/use-suggested-conditions';
-import { Loader2, Building2, RefreshCcw, Sparkles, Brain, Heart, Activity, ArrowUpRight, CornerDownRight, Link2, Circle, Triangle, MapPin } from 'lucide-react';
+import { Loader2, Building2, RefreshCcw, Sparkles } from 'lucide-react';
 import { formatCurrency, extractList } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import {
+  IconCervikale, IconTorakale, IconLombosakrale, IconKrahu,
+  IconBerryli, IconKyci, IconKerdhokulla, IconGjuri, IconShputa,
+} from '@/components/ui/anatomy-icons';
 
 const ANATOMICAL_CATEGORIES = [
-  { id: 'CERVIKALE',    label: 'Cervikale',    Icon: Brain },
-  { id: 'TORAKALE',     label: 'Torakale',     Icon: Heart },
-  { id: 'LOMBOSAKRALE', label: 'Lombosakrale', Icon: Activity },
-  { id: 'KRAHU',        label: 'Krahu',        Icon: ArrowUpRight },
-  { id: 'BERRYLI',      label: 'Bërryli',      Icon: CornerDownRight },
-  { id: 'KYCI',         label: 'Kyçi',         Icon: Link2 },
-  { id: 'KERDHOKULLA',  label: 'Kërdhokulla',  Icon: Circle },
-  { id: 'GJURI',        label: 'Gjuri',        Icon: Triangle },
-  { id: 'SHPUTA',       label: 'Shputa',       Icon: MapPin },
+  { id: 'CERVIKALE',    label: 'Cervikale',    Icon: IconCervikale },
+  { id: 'TORAKALE',     label: 'Torakale',     Icon: IconTorakale },
+  { id: 'LOMBOSAKRALE', label: 'Lombosakrale', Icon: IconLombosakrale },
+  { id: 'KRAHU',        label: 'Krahu',        Icon: IconKrahu },
+  { id: 'BERRYLI',      label: 'Bërryli',      Icon: IconBerryli },
+  { id: 'KYCI',         label: 'Kyçi',         Icon: IconKyci },
+  { id: 'KERDHOKULLA',  label: 'Kërdhokulla',  Icon: IconKerdhokulla },
+  { id: 'GJURI',        label: 'Gjuri',        Icon: IconGjuri },
+  { id: 'SHPUTA',       label: 'Shputa',       Icon: IconShputa },
 ] as const;
 
 const schema = z.object({
