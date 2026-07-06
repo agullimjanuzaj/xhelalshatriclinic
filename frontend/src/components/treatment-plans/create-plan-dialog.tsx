@@ -25,21 +25,16 @@ import { useSuggestedConditions } from '@/hooks/use-suggested-conditions';
 import { Loader2, Building2, RefreshCcw, Sparkles } from 'lucide-react';
 import { formatCurrency, extractList } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import {
-  IconCervikale, IconTorakale, IconLombosakrale, IconKrahu,
-  IconBerryli, IconKyci, IconKerdhokulla, IconGjuri, IconShputa,
-} from '@/components/ui/anatomy-icons';
-
 const ANATOMICAL_CATEGORIES = [
-  { id: 'CERVIKALE',    label: 'Cervikale',    Icon: IconCervikale },
-  { id: 'TORAKALE',     label: 'Torakale',     Icon: IconTorakale },
-  { id: 'LOMBOSAKRALE', label: 'Lombosakrale', Icon: IconLombosakrale },
-  { id: 'KRAHU',        label: 'Krahu',        Icon: IconKrahu },
-  { id: 'BERRYLI',      label: 'Bërryli',      Icon: IconBerryli },
-  { id: 'KYCI',         label: 'Kyçi',         Icon: IconKyci },
-  { id: 'KERDHOKULLA',  label: 'Kërdhokulla',  Icon: IconKerdhokulla },
-  { id: 'GJURI',        label: 'Gjuri',        Icon: IconGjuri },
-  { id: 'SHPUTA',       label: 'Shputa',       Icon: IconShputa },
+  { id: 'CERVIKALE',    label: 'Cervikale',    img: '/icons/cervikale.png' },
+  { id: 'TORAKALE',     label: 'Torakale',     img: '/icons/torakale.png' },
+  { id: 'LOMBOSAKRALE', label: 'Lombosakrale', img: '/icons/lombosakrale.png' },
+  { id: 'KRAHU',        label: 'Krahu',        img: '/icons/krahu.png' },
+  { id: 'BERRYLI',      label: 'Bërryli',      img: '/icons/berryli.png' },
+  { id: 'KYCI',         label: 'Kyçi',         img: '/icons/kyci.png' },
+  { id: 'KERDHOKULLA',  label: 'Kërdhokulla',  img: '/icons/kerdhokulla.png' },
+  { id: 'GJURI',        label: 'Gjuri',        img: '/icons/gjuri.png' },
+  { id: 'SHPUTA',       label: 'Shputa',       img: '/icons/shputa.png' },
 ] as const;
 
 const schema = z.object({
@@ -325,34 +320,30 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                   <FormLabel>Ankesat kryesore</FormLabel>
                   {/* Step 1: pick anatomical region */}
                   <div className="grid grid-cols-3 gap-2">
-                    {ANATOMICAL_CATEGORIES.map(({ id, label, Icon }) => {
+                    {ANATOMICAL_CATEGORIES.map(({ id, label, img }) => {
                       const isActive = selectedCategory === id;
-                      const hasChecked = (field.value || []).some((name) =>
+                      const count = (field.value || []).filter((name) =>
                         complaintOptions.find((c) => c.name === name && c.category === id),
-                      );
+                      ).length;
                       return (
                         <button
                           key={id}
                           type="button"
-                          onClick={() => {
-                            if (selectedCategory !== id) {
-                              setSelectedCategory(id);
-                              // Clear complaints from other categories
-                              const keep = (field.value || []).filter((name) =>
-                                complaintOptions.find((c) => c.name === name && c.category === id),
-                              );
-                              field.onChange(keep);
-                            }
-                          }}
+                          onClick={() => setSelectedCategory(selectedCategory === id ? null : id)}
                           className={cn(
-                            'flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-colors cursor-pointer',
+                            'relative flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-colors cursor-pointer',
                             isActive
                               ? 'border-teal-500 bg-teal-50 text-teal-700'
                               : 'border-border bg-background text-muted-foreground hover:border-teal-300 hover:text-teal-600',
-                            hasChecked && !isActive && 'border-teal-300 text-teal-600',
+                            count > 0 && !isActive && 'border-teal-300 text-teal-600',
                           )}
                         >
-                          <Icon size={18} className="flex-shrink-0" />
+                          {count > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-500 px-1 text-[9px] font-bold text-white leading-none">
+                              {count}
+                            </span>
+                          )}
+                          <img src={img} alt={label} className="w-5 h-5 object-contain flex-shrink-0" />
                           <span className="text-[10px] font-medium leading-tight">{label}</span>
                         </button>
                       );
