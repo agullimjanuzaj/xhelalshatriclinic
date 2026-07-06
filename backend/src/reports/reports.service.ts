@@ -4,6 +4,7 @@ import { computePlanFinancials } from '../payments/plan-financials.util';
 import { buildPaginationMeta } from '../common/dto/pagination.dto';
 import { ClinicSettingsService } from '../clinic-settings/clinic-settings.service';
 import * as dayjs from 'dayjs';
+import * as XLSX from 'xlsx';
 
 export interface ReportsOverviewFilter {
   month?: string; // 'YYYY-MM'
@@ -505,5 +506,99 @@ export class ReportsService {
     });
 
     return patients;
+  }
+
+  // ── Patient Visits ─────────────────────────────────────────────────────────
+  // One row per completed session. Default period: last full calendar month.
+
+  private defaultLastMonth(): { from: Date; to: Date } {
+    const now = dayjs();
+    const lastMonth = now.subtract(1, 'month');
+    return {
+      from: lastMonth.startOf('month').toDate(),
+      to: lastMonth.endOf('month').toDate(),
+    };
+  }
+
+  private buildVisitSessionWhere(filter: { dateFrom?: string; dateTo?: string; branchId?: string }, user: any) {
+    const where: any = { deletedAt: null, status: 'COMPLETED' };
+
+    let { from, to } = this.defaultLastMonth();
+    if (filter.dateFrom) from = dayjs(filter.dateFrom).startOf('day').toDate();
+    if (filter.dateTo) to = dayjs(filter.dateTo).endOf('day').toDate();
+    where.completedAt = { gte: from, lte: to };
+
+    if (user.role === 'MANAGER') {
+      const userBranchIds: string[] = user.userBranches?.map((ub: any) => ub.branchId) || [];
+      const bid = filter.branchId && userBranchIds.includes(filter.branchId) ? filter.branchId : userBranchIds[0];
+      if (bid) where.branchId = bid;
+    } else if (filter.branchId) {
+      where.branchId = filter.branchId;
+    }
+
+    return where;
+  }
+
+  async getPatientVisits(filter: { dateFrom?: string; dateTo?: string; branchId?: string }, user: any) {
+    const where = this.buildVisitSessionWhere(filter, user);
+
+    const sessions = await this.prisma.session.findMany({
+      where,
+      orderBy: { completedAt: 'asc' },
+      take: 2000,
+      include: {
+        patient: { select: { firstName: true, lastName: true, birthDate: true } },
+        branch: { select: { name: true } },
+        physiotherapist: { select: { firstName: true, lastName: true } },
+        treatmentPlan: { select: { diagnosis: true, treatmentTypes: true } },
+      },
+    });
+
+    return sessions.map((s: any) => ({
+      patientFirstName: s.patient?.firstName || '',
+      patientLastName: s.patient?.lastName || '',
+      birthDate: s.patient?.birthDate ? dayjs(s.patient.birthDate).format('DD/MM/YYYY') : '',
+      branch: s.branch?.name || '',
+      visitDate: s.completedAt ? dayjs(s.completedAt).format('DD/MM/YYYY') : '',
+      treatment: s.treatmentPlan?.diagnosis || (s.treatmentPlan?.treatmentTypes?.join(', ')) || '',
+      physiotherapist: s.physiotherapist ? `${s.physiotherapist.firstName} ${s.physiotherapist.lastName}` : '',
+      notes: s.notes || '',
+    }));
+  }
+
+  async exportPatientVisitsExcel(filter: { dateFrom?: string; dateTo?: string; branchId?: string }, user: any): Promise<{ buffer: Buffer; filename: string }> {
+    const rows = await this.getPatientVisits(filter, user);
+
+    const wsData = [
+      ['Emri', 'Mbiemri', 'Data e lindjes', 'Dega', 'Data e paraqitjes', 'Trajtimi', 'Fizioterapeuti', 'Shënim'],
+      ...rows.map((r: any) => [
+        r.patientFirstName,
+        r.patientLastName,
+        r.birthDate,
+        r.branch,
+        r.visitDate,
+        r.treatment,
+        r.physiotherapist,
+        r.notes,
+      ]),
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 14 }, { wch: 15 }, { wch: 18 },
+      { wch: 16 }, { wch: 30 }, { wch: 20 }, { wch: 30 },
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Pacientët');
+
+    const dateFrom = filter.dateFrom || dayjs().subtract(1, 'month').startOf('month').format('DD-MM-YYYY');
+    const dateTo = filter.dateTo || dayjs().subtract(1, 'month').endOf('month').format('DD-MM-YYYY');
+    const filename = `Raporti_Pacienteve_${dateFrom}_${dateTo}.xlsx`;
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+    return { buffer, filename };
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi, usersApi, branchesApi } from '@/lib/api';
 import { useReportsFilters } from '@/hooks/use-reports-filters';
@@ -10,20 +10,36 @@ import { PaymentBadge } from '@/components/ui/payment-badge';
 import { StatsCard } from '@/components/ui/stats-card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatCurrency, formatCount } from '@/lib/utils';
+import { formatCurrency, formatCount, extractList } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter } from 'lucide-react';
+import { Users, Activity, CalendarCheck, Stethoscope, Wallet, AlertTriangle, FilterX, Filter, Download, Loader2 } from 'lucide-react';
 import { ClearableDateInput, ClearableMonthInput } from '@/components/ui/clearable-date-input';
 import { ClinicSettingsCard } from '@/components/reports/clinic-settings-card';
 import { BonusConfigCard } from '@/components/reports/bonus-config-card';
 
 const ALL = '__all__';
 
+function getLastMonthRange() {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const last = new Date(now.getFullYear(), now.getMonth(), 0);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: fmt(first), to: fmt(last) };
+}
+
 export function AdminReportsView() {
   const f = useReportsFilters();
   const [outstandingPage, setOutstandingPage] = useState(1);
   useEffect(() => { setOutstandingPage(1); }, [f.applied]);
+
+  // Patient visits tab — own filter state, default = last full month
+  const lm = getLastMonthRange();
+  const [visitsFrom, setVisitsFrom] = useState(lm.from);
+  const [visitsTo, setVisitsTo] = useState(lm.to);
+  const [visitsApplied, setVisitsApplied] = useState({ dateFrom: lm.from, dateTo: lm.to });
+  const [visitsExporting, setVisitsExporting] = useState(false);
+  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
 
   const { data: usersData } = useQuery({ queryKey: ['users-select'], queryFn: () => usersApi.getAll({ limit: 200 }) });
   const users = (usersData as any)?.data || [];
@@ -78,6 +94,34 @@ export function AdminReportsView() {
     queryKey: ['report-bonuses', f.applied],
     queryFn: () => reportsApi.getBonuses(f.applied),
   });
+
+  const { data: visitsData, isLoading: visitsLoading } = useQuery({
+    queryKey: ['report-patient-visits', visitsApplied],
+    queryFn: () => reportsApi.getPatientVisits(visitsApplied),
+  });
+
+  const visits = extractList<any>(visitsData);
+
+  async function handleVisitsExport() {
+    setVisitsExporting(true);
+    try {
+      const blob = await reportsApi.exportPatientVisits(visitsApplied) as unknown as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const from = visitsApplied.dateFrom?.replace(/-/g, '-') || '';
+      const to = visitsApplied.dateTo?.replace(/-/g, '-') || '';
+      a.href = url;
+      a.download = `Raporti_Pacienteve_${from}_${to}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // error toast handled by api interceptor
+    } finally {
+      setVisitsExporting(false);
+    }
+  }
 
   const sessionsBranchData = (sessionsByBranch as any)?.data || [];
   const sessionsPhysioData = (sessionsByPhysio as any)?.data || [];
@@ -216,6 +260,7 @@ export function AdminReportsView() {
             <TabsTrigger value="revenue">Të ardhurat</TabsTrigger>
             <TabsTrigger value="outstanding">Balancet</TabsTrigger>
             <TabsTrigger value="bonuses">Bonuset</TabsTrigger>
+            <TabsTrigger value="patient-visits">Pacientët në klinikë</TabsTrigger>
           </TabsList>
         </div>
 
@@ -338,6 +383,61 @@ export function AdminReportsView() {
                 data={bonuses}
                 emptyMessage="Nuk ka të dhëna për periudhën e zgjedhur"
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="patient-visits" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Pacientët në klinikë</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Nga data</label>
+                  <ClearableDateInput value={visitsFrom} onChange={setVisitsFrom} onClear={() => setVisitsFrom('')} className="w-40" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Deri në datë</label>
+                  <ClearableDateInput value={visitsTo} onChange={setVisitsTo} onClear={() => setVisitsTo('')} className="w-40" />
+                </div>
+                <Button
+                  onClick={() => setVisitsApplied({ dateFrom: visitsFrom, dateTo: visitsTo })}
+                  className="gap-2 gradient-teal text-white border-0"
+                  size="sm"
+                >
+                  <Filter size={14} />Filtro
+                </Button>
+                <Button
+                  onClick={handleVisitsExport}
+                  disabled={visitsExporting || visitsLoading}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  {visitsExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  Eksporto Excel
+                </Button>
+              </div>
+
+              {visitsLoading && <p className="text-sm text-muted-foreground">Duke ngarkuar...</p>}
+              {!visitsLoading && (
+                <DataTable
+                  columns={[
+                    { header: 'Emri', accessor: (r: any) => r.patientFirstName },
+                    { header: 'Mbiemri', accessor: (r: any) => r.patientLastName },
+                    { header: 'Data e lindjes', accessor: (r: any) => r.birthDate || '—' },
+                    { header: 'Dega', accessor: (r: any) => r.branch },
+                    { header: 'Data e paraqitjes', accessor: (r: any) => r.visitDate },
+                    { header: 'Trajtimi', accessor: (r: any) => <span className="text-xs">{r.treatment || '—'}</span> },
+                    { header: 'Fizioterapeuti', accessor: (r: any) => r.physiotherapist || '—' },
+                    { header: 'Shënim', accessor: (r: any) => <span className="text-xs text-muted-foreground">{r.notes || '—'}</span> },
+                  ]}
+                  data={visits}
+                  emptyMessage="Nuk ka vizita për periudhën e zgjedhur"
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

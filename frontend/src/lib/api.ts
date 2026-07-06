@@ -130,6 +130,8 @@ export const treatmentPlansApi = {
   delete: (id: string) => api.delete(`/treatment-plans/${id}`),
   generateNotes: (data: { diagnosis?: string; treatmentTypes?: string[]; totalSessions?: number; existingNotes?: string; complaints?: string[]; selectedDiagnoses?: string[] }) =>
     api.post('/treatment-plans/generate-notes', data),
+  generateComplaintDescription: (complaints: string[]) =>
+    api.post('/treatment-plans/generate-complaint-description', { complaints }),
 };
 
 export const sessionsApi = {
@@ -184,6 +186,15 @@ export const reportsApi = {
     api.get('/reports/patient-activity', { params: { branchId } }),
   getBonuses: (params?: { month?: string; dateFrom?: string; dateTo?: string; userId?: string; branchId?: string }) =>
     api.get('/reports/bonuses', { params }),
+  getPatientVisits: (params?: { dateFrom?: string; dateTo?: string; branchId?: string }) =>
+    api.get('/reports/patient-visits', { params }),
+  exportPatientVisits: async (params?: { dateFrom?: string; dateTo?: string; branchId?: string }) => {
+    const response = await api.get('/reports/patient-visits/export', {
+      params,
+      responseType: 'blob',
+    }) as unknown as Blob;
+    return response;
+  },
 };
 
 export const complaintsApi = {

@@ -27,6 +27,15 @@ export class TreatmentPlansService {
     return { text: fallback, source: 'fallback' };
   }
 
+  async generateComplaintDescription(complaints: string[]): Promise<{ text: string; source: 'gemini' | 'fallback' }> {
+    if (!complaints?.length) throw new BadRequestException('Zgjidhni të paktën një ankesë');
+    const aiText = await this.geminiService.generateComplaintDescription({ complaints });
+    if (aiText) return { text: aiText, source: 'gemini' };
+    // Simple fallback: join complaints into a sentence
+    const fallback = `Pacienti ankon kryesisht për: ${complaints.join(', ')}.`;
+    return { text: fallback, source: 'fallback' };
+  }
+
   async findAll(dto: PaginationDto & { patientId?: string; branchId?: string; dateFrom?: string; dateTo?: string }, user: any) {
     const page = Number(dto.page) || 1;
     const limit = Number(dto.limit) || 24;

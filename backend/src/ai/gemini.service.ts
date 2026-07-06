@@ -16,6 +16,10 @@ export interface GenerateRecommendationInput {
   treatmentTypes?: string[];
 }
 
+export interface GenerateComplaintDescriptionInput {
+  complaints: string[];
+}
+
 export interface AiResult {
   text: string;
   source: 'gemini' | 'fallback';
@@ -96,6 +100,21 @@ export class GeminiService {
     }
   }
 
+  async generateComplaintDescription(input: GenerateComplaintDescriptionInput): Promise<string | null> {
+    if (!this.model) return null;
+    const start = Date.now();
+    try {
+      const prompt = this.buildComplaintDescriptionPrompt(input);
+      const text = await withTimeout(streamToText(this.model, prompt), TIMEOUT_MS);
+      if (!text) throw new Error('Empty response from Gemini');
+      this.logger.log(`Complaint description generated (${Date.now() - start}ms, ${text.length} chars)`);
+      return text;
+    } catch (err) {
+      this.logger.error(`Complaint description generation failed (${Date.now() - start}ms): ${(err as Error).message}`);
+      return null;
+    }
+  }
+
   async generateRecommendation(input: GenerateRecommendationInput): Promise<string | null> {
     if (!this.model) return null;
     const start = Date.now();
@@ -144,6 +163,25 @@ export class GeminiService {
     );
 
     return lines.join('\n');
+  }
+
+  private buildComplaintDescriptionPrompt(input: GenerateComplaintDescriptionInput): string {
+    const { complaints } = input;
+    return [
+      'Ti je një fizioterapeut klinik që po dokumenton historikun e ankesave të pacientit.',
+      '',
+      `Ankesat kryesore të raportuar nga pacienti: ${complaints.join(', ')}`,
+      '',
+      'Shkruaj një përshkrim të shkurtër klinik (40-80 fjalë) të ankesave në shqip, që:',
+      '1. Formulon ankesat si narrativ klinik profesional (jo si listë)',
+      '2. Kombinon ankesat logjikisht nëse janë të lidhura',
+      '3. Nuk shpik simptoma shtesë ose detaje specifike (intensitet, kohëzgjatje) që nuk janë dhënë',
+      '4. Shkruhet si tekst i vazhdueshëm, plain text (pa markdown)',
+      '5. Fillon direkt me përshkrimin — pa hyrje si "Sigurisht", "Pacienti ankon", etj.',
+      '6. Nuk përfshin rekomandime trajtimi — vetëm dokumentim ankesash',
+      '',
+      'Shkruaje direkt përshkrimin (plain text, 40-80 fjalë):',
+    ].join('\n');
   }
 
   private buildRecommendationPrompt(input: GenerateRecommendationInput): string {

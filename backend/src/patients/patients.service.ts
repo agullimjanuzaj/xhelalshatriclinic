@@ -221,8 +221,10 @@ export class PatientsService {
     const since = activeInClinic ? new Date() : null;
     const expiresAt = activeInClinic ? await this.computeExpiresAt(since as Date) : null;
 
+    const birthDate = dto.birthDate ? new Date(dto.birthDate) : undefined;
+    const { birthDate: _bd, branchId: _ignored, ...restDto } = dto as any;
     const patient = await this.prisma.patient.create({
-      data: { ...dto, branchId, activeInClinic, status: null, activeInClinicSince: since, activeInClinicExpiresAt: expiresAt },
+      data: { ...restDto, branchId, birthDate, activeInClinic, status: null, activeInClinicSince: since, activeInClinicExpiresAt: expiresAt },
       include: { branch: { select: { id: true, name: true } } },
     });
 
@@ -339,6 +341,9 @@ export class PatientsService {
       }
     }
 
+    if (data.birthDate) {
+      data.birthDate = new Date(data.birthDate);
+    }
     const updated = await this.prisma.patient.update({
       where: { id },
       data,

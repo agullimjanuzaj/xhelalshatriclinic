@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,7 +26,7 @@ const schema = z.object({
   lastName: z.string().min(1, 'Mbiemri është i detyrueshëm'),
   phone: z.string().min(1, 'Numri i telefonit është i detyrueshëm'),
   address: z.string().optional(),
-  birthDate: z.string().optional(),
+  birthDate: z.string().optional(), // yyyy-mm-dd from DateInput
   gender: z.enum(['MALE', 'FEMALE']).optional(),
   notes: z.string().optional(),
   branchId: z.string().min(1, 'Dega është e detyrueshme'),
@@ -121,7 +122,9 @@ export default function NewPatientPage() {
                 <FormField control={form.control} name="birthDate" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Data e lindjes</FormLabel>
-                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormControl>
+                      <DateInput value={field.value} onChange={field.onChange} />
+                    </FormControl>
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="gender" render={({ field }) => (

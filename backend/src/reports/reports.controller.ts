@@ -1,6 +1,7 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Response } from 'express';
 import { ReportsService } from './reports.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -105,5 +106,36 @@ export class ReportsController {
   @ApiOperation({ summary: 'Aktiviteti i pacientëve' })
   getPatientActivityReport(@Query('branchId') branchId?: string, @CurrentUser() user?: any) {
     return this.reportsService.getPatientActivityReport(branchId, user);
+  }
+
+  @Get('patient-visits')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Lista e vizitave të pacientëve (një rresht për seancë)' })
+  getPatientVisits(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('branchId') branchId?: string,
+    @CurrentUser() user?: any,
+  ) {
+    return this.reportsService.getPatientVisits({ dateFrom, dateTo, branchId }, user);
+  }
+
+  @Get('patient-visits/export')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Eksporto vizitat e pacientëve si Excel (.xlsx)' })
+  async exportPatientVisits(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('branchId') branchId?: string,
+    @CurrentUser() user?: any,
+    @Res() res?: Response,
+  ) {
+    const { buffer, filename } = await this.reportsService.exportPatientVisitsExcel({ dateFrom, dateTo, branchId }, user);
+    res!.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
+    res!.end(buffer);
   }
 }

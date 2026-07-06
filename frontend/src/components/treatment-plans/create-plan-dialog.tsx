@@ -19,6 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PatientCombobox } from '@/components/ui/patient-combobox';
 import { GenerateNotesButton } from '@/components/treatment-plans/generate-notes-button';
+import { GenerateComplaintDescriptionButton } from '@/components/treatment-plans/generate-complaint-description-button';
+import { DateInput } from '@/components/ui/date-input';
 import { useSuggestedConditions } from '@/hooks/use-suggested-conditions';
 import { Loader2, Building2, RefreshCcw, Sparkles } from 'lucide-react';
 import { formatCurrency, extractList } from '@/lib/utils';
@@ -36,6 +38,7 @@ const schema = z.object({
   startDate: z.string().min(1, 'Data e fillimit është e detyrueshme'),
   assignedPhysiotherapistId: z.string().optional().or(z.literal('')),
   notes: z.string().optional(),
+  complaintDescription: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -94,6 +97,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
     startDate: plan.startDate ? new Date(plan.startDate).toISOString().slice(0, 10) : '',
     assignedPhysiotherapistId: plan.assignedPhysiotherapistId || '',
     notes: plan.notes || '',
+    complaintDescription: plan.complaintDescription || '',
   } : {
     patientId: defaultPatientId || '',
     diagnosis: '',
@@ -107,6 +111,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
     startDate: new Date().toISOString().slice(0, 10),
     assignedPhysiotherapistId: '',
     notes: '',
+    complaintDescription: '',
   }, [plan, defaultPatientId]);
 
   const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues });
@@ -146,6 +151,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
   const watchedTypes = form.watch('treatmentTypes') || [];
   const watchedDiagnosis = form.watch('diagnosis') || '';
   const watchedNotes = form.watch('notes') || '';
+  const watchedComplaintDescription = form.watch('complaintDescription') || '';
   const totalSessions = form.watch('totalSessions') || 0;
   const sessionFee = form.watch('sessionFee') || 0;
   const manualTotal = form.watch('manualTotal');
@@ -328,6 +334,25 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
               )} />
             )}
 
+            {/* Përshkrimi i ankesave — free-text narrative, AI-generatable from selected complaints */}
+            <FormField control={form.control} name="complaintDescription" render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Përshkrimi i ankesave</FormLabel>
+                  <GenerateComplaintDescriptionButton
+                    complaints={watchedComplaints}
+                    onGenerated={(text) => {
+                      if (watchedComplaintDescription.trim() && !window.confirm('Përshkrimi ekzistues do të zëvendësohet. Vazhdo?')) return;
+                      form.setValue('complaintDescription', text);
+                    }}
+                  />
+                </div>
+                <FormControl>
+                  <Textarea placeholder="Përshkrim i lirë i ankesave kryesore të pacientit..." rows={3} {...field} />
+                </FormControl>
+              </FormItem>
+            )} />
+
             {/* "Merr sugjerime" — same interaction as /sugjerime's "Zgjidh simptomat" */}
             <div className="flex items-center gap-2">
               <Button
@@ -459,7 +484,9 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
             <FormField control={form.control} name="startDate" render={({ field }) => (
               <FormItem>
                 <FormLabel>Data e fillimit</FormLabel>
-                <FormControl><Input type="date" {...field} /></FormControl>
+                <FormControl>
+                  <DateInput value={field.value} onChange={field.onChange} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )} />

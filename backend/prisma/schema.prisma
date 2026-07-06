@@ -357,6 +357,7 @@ model TreatmentPlan {
   amountPaid                Decimal       @default(0) @map("amount_paid") @db.Decimal(10, 2)
   paymentStatus             PaymentStatus @default(UNPAID) @map("payment_status")
   notes                     String?
+  complaintDescription      String?       @map("complaint_description")
   isActive                  Boolean       @default(true) @map("is_active")
   startDate                 DateTime?     @map("start_date")
   endDate                   DateTime?     @map("end_date")

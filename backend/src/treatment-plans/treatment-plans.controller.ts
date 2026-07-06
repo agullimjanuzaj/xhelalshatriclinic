@@ -55,6 +55,13 @@ export class TreatmentPlansController {
     return this.service.generateNotes(dto.diagnosis, dto.treatmentTypes, dto.totalSessions, dto.existingNotes, dto.complaints, dto.selectedDiagnoses);
   }
 
+  @Post('generate-complaint-description')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Gjenero përshkrimin e ankesave nga lista e ankesave të zgjedhura' })
+  generateComplaintDescription(@Body() dto: { complaints: string[] }) {
+    return this.service.generateComplaintDescription(dto.complaints);
+  }
+
   @Put(':id')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Edito kontrollën (planin e trajtimit)' })

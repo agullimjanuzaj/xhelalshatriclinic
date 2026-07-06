@@ -60,23 +60,24 @@ export function formatActiveUntil(expiresAt: string | Date | null | undefined): 
 
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—';
-  return new Date(date).toLocaleDateString('sq-AL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  const day = d.getUTCDate().toString().padStart(2, '0');
+  const month = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return '—';
-  return new Date(date).toLocaleString('sq-AL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = d.getHours().toString().padStart(2, '0');
+  const mins = d.getMinutes().toString().padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${mins}`;
 }
 
 export function formatCount(count: number, singular: string, plural: string): string {

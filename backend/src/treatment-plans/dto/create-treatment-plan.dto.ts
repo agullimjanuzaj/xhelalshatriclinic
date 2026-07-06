@@ -48,6 +48,11 @@ export class CreateTreatmentPlanDto {
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional({ description: 'Përshkrimi i lirë i ankesave kryesore' })
+  @IsOptional()
+  @IsString()
+  complaintDescription?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   startDate?: string;
