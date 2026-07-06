@@ -343,7 +343,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                               {count}
                             </span>
                           )}
-                          <img src={img} alt={label} className="w-5 h-5 object-contain flex-shrink-0" />
+                          <img src={img} alt={label} className="w-6 h-6 object-contain flex-shrink-0" />
                           <span className="text-[10px] font-medium leading-tight">{label}</span>
                         </button>
                       );
@@ -407,7 +407,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                   />
                 </div>
                 <FormControl>
-                  <Textarea placeholder="Përshkrim i lirë i ankesave kryesore të pacientit..." rows={3} {...field} />
+                  <Textarea autoResize placeholder="Përshkrim i lirë i ankesave kryesore të pacientit..." rows={3} {...field} />
                 </FormControl>
               </FormItem>
             )} />
@@ -564,7 +564,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                     onGenerated={(text) => form.setValue('notes', text)}
                   />
                 </div>
-                <FormControl><Textarea placeholder="Plani i tretmanit..." rows={4} {...field} /></FormControl>
+                <FormControl><Textarea autoResize placeholder="Plani i tretmanit..." rows={4} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

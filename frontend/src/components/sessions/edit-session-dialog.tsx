@@ -145,7 +145,7 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
                 <FormLabel>Shënim i shkurtër</FormLabel>
-                <FormControl><Textarea rows={2} {...field} /></FormControl>
+                <FormControl><Textarea autoResize rows={2} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -160,7 +160,7 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
                     onGenerated={(text) => form.setValue('recommendations', text)}
                   />
                 </div>
-                <FormControl><Textarea rows={3} {...field} /></FormControl>
+                <FormControl><Textarea autoResize rows={3} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

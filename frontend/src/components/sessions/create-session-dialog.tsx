@@ -249,7 +249,7 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
                     onGenerated={(text) => form.setValue('notes', text)}
                   />
                 </div>
-                <FormControl><Textarea placeholder="Si shkoi seanca..." rows={2} {...field} /></FormControl>
+                <FormControl><Textarea autoResize placeholder="Si shkoi seanca..." rows={2} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -264,7 +264,7 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
                     onGenerated={(text) => form.setValue('recommendations', text)}
                   />
                 </div>
-                <FormControl><Textarea placeholder="Rekomandime pas seancës..." rows={3} {...field} /></FormControl>
+                <FormControl><Textarea autoResize placeholder="Rekomandime pas seancës..." rows={3} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

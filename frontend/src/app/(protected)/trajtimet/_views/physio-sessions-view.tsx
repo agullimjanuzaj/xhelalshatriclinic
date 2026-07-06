@@ -239,7 +239,7 @@ export function PhysioSessionsView() {
               <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Shënim i shkurtër</FormLabel>
-                  <FormControl><Textarea placeholder="Si shkoi trajtimi..." rows={2} {...field} /></FormControl>
+                  <FormControl><Textarea autoResize placeholder="Si shkoi trajtimi..." rows={2} {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -254,7 +254,7 @@ export function PhysioSessionsView() {
                       onGenerated={(text) => form.setValue('recommendations', text)}
                     />
                   </div>
-                  <FormControl><Textarea placeholder="Rekomandime pas trajtimit..." rows={3} {...field} /></FormControl>
+                  <FormControl><Textarea autoResize placeholder="Rekomandime pas trajtimit..." rows={3} {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
