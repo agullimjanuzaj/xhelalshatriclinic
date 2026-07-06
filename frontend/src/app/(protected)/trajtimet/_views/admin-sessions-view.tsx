@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { PhysiotherapistCombobox } from '@/components/ui/physiotherapist-combobox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatDate, formatCurrency } from '@/lib/utils';
-import { getPatientDetailPath } from '@/lib/routes';
+import { getPatientDetailPath, ROUTES } from '@/lib/routes';
 import { Search, Calendar, Plus, Pencil, Trash2 } from 'lucide-react';
 import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { CreateSessionDialog } from '@/components/sessions/create-session-dialog';
@@ -20,7 +20,6 @@ import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { printSessionReport, shareSessionReport } from '@/lib/invoice';
-import { SessionViewerDialog } from '@/components/sessions/session-viewer-dialog';
 import { CheckCircle2, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,7 +37,6 @@ export function AdminSessionsView() {
   const [editSession, setEditSession] = useState<any>(null);
   const [deleteSession, setDeleteSession] = useState<any>(null);
   const [paySession, setPaySession] = useState<any>(null);
-  const [viewSessionId, setViewSessionId] = useState<string | null>(null);
 
   const setDateParam = (key: 'dateFrom' | 'dateTo', value: string) => {
     setPage(1);
@@ -129,7 +127,7 @@ export function AdminSessionsView() {
       accessor: (row) => (
         <div className="flex items-center gap-1">
           <DocumentActions
-            onShow={() => setViewSessionId(row.id)}
+            onShow={() => router.push(ROUTES.sessionDetail(row.id))}
             onPrint={() => printSessionReport(row.id)}
             onShare={() => shareSessionReport(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
@@ -257,15 +255,6 @@ export function AdminSessionsView() {
         />
       )}
 
-      <SessionViewerDialog
-        sessionId={viewSessionId}
-        onClose={() => setViewSessionId(null)}
-        onPrint={() => viewSessionId && printSessionReport(viewSessionId)}
-        onShare={() => {
-          const s = sessions.find((x: any) => x.id === viewSessionId);
-          return shareSessionReport(viewSessionId!, s?.patient?.firstName, s?.patient?.lastName);
-        }}
-      />
     </div>
   );
 }

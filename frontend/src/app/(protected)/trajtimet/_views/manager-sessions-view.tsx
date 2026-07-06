@@ -5,6 +5,7 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import { useSession } from 'next-auth/react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { sessionsApi } from '@/lib/api';
+import { ROUTES } from '@/lib/routes';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { SessionBadge } from '@/components/ui/session-badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,6 @@ import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { printSessionReport, shareSessionReport } from '@/lib/invoice';
-import { SessionViewerDialog } from '@/components/sessions/session-viewer-dialog';
 
 export function ManagerSessionsView() {
   const { data: session } = useSession();
@@ -29,7 +29,6 @@ export function ManagerSessionsView() {
   const [page, setPage] = useState(1);
   const [physiotherapistId, setPhysiotherapistId] = useState('');
   const [paySession, setPaySession] = useState<any>(null);
-  const [viewSessionId, setViewSessionId] = useState<string | null>(null);
   const branchId = session?.user?.userBranches?.[0]?.branchId;
 
   const setDateParam = (key: 'dateFrom' | 'dateTo', value: string) => {
@@ -96,7 +95,7 @@ export function ManagerSessionsView() {
       header: 'Veprimet',
       accessor: (row) => (
         <DocumentActions
-          onShow={() => setViewSessionId(row.id)}
+          onShow={() => router.push(ROUTES.sessionDetail(row.id))}
           onPrint={() => printSessionReport(row.id)}
           onShare={() => shareSessionReport(row.id, row.patient?.firstName, row.patient?.lastName)}
         />
@@ -184,15 +183,6 @@ export function ManagerSessionsView() {
         />
       )}
 
-      <SessionViewerDialog
-        sessionId={viewSessionId}
-        onClose={() => setViewSessionId(null)}
-        onPrint={() => viewSessionId && printSessionReport(viewSessionId)}
-        onShare={() => {
-          const s = sessions.find((x: any) => x.id === viewSessionId);
-          return shareSessionReport(viewSessionId!, s?.patient?.firstName, s?.patient?.lastName);
-        }}
-      />
     </div>
   );
 }

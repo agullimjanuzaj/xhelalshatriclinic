@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { sessionsApi } from '@/lib/api';
+import { ROUTES } from '@/lib/routes';
 import { useSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +27,6 @@ import { GenerateRecommendationButton } from '@/components/sessions/generate-rec
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { printSessionReport, shareSessionReport } from '@/lib/invoice';
-import { SessionViewerDialog } from '@/components/sessions/session-viewer-dialog';
 
 const completeSchema = z.object({
   notes: z.string().optional(),
@@ -53,7 +53,6 @@ export function PhysioSessionsView() {
   const [showCreate, setShowCreate] = useState(false);
   const [editSession, setEditSession] = useState<any>(null);
   const [deleteSession, setDeleteSession] = useState<any>(null);
-  const [viewSessionId, setViewSessionId] = useState<string | null>(null);
 
   const setDateParam = (key: 'dateFrom' | 'dateTo', value: string) => {
     setPage(1);
@@ -147,7 +146,7 @@ export function PhysioSessionsView() {
             </Button>
           )}
           <DocumentActions
-            onShow={() => setViewSessionId(row.id)}
+            onShow={() => router.push(ROUTES.sessionDetail(row.id))}
             onPrint={() => printSessionReport(row.id)}
             onShare={() => shareSessionReport(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
@@ -290,15 +289,6 @@ export function PhysioSessionsView() {
         isPending={deleteMutation.isPending}
       />
 
-      <SessionViewerDialog
-        sessionId={viewSessionId}
-        onClose={() => setViewSessionId(null)}
-        onPrint={() => viewSessionId && printSessionReport(viewSessionId)}
-        onShare={() => {
-          const s = sessions.find((x: any) => x.id === viewSessionId);
-          return shareSessionReport(viewSessionId!, s?.patient?.firstName, s?.patient?.lastName);
-        }}
-      />
     </div>
   );
 }

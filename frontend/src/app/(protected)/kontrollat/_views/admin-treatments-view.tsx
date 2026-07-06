@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation, keepPreviousData } from '@tanstack/react-query';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { treatmentPlansApi } from '@/lib/api';
-import { getPatientDetailPath } from '@/lib/routes';
+import { getPatientDetailPath, ROUTES } from '@/lib/routes';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { PaymentBadge } from '@/components/ui/payment-badge';
@@ -17,7 +17,6 @@ import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
 import { CreatePlanDialog } from '@/components/treatment-plans/create-plan-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
-import { PlanViewerDialog } from '@/components/treatment-plans/plan-viewer-dialog';
 import { toast } from 'sonner';
 
 export function AdminTreatmentsView() {
@@ -30,7 +29,6 @@ export function AdminTreatmentsView() {
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [editPlan, setEditPlan] = useState<any>(null);
   const [deletePlan, setDeletePlan] = useState<any>(null);
-  const [viewPlanId, setViewPlanId] = useState<string | null>(null);
 
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
@@ -124,7 +122,7 @@ export function AdminTreatmentsView() {
       accessor: (row) => (
         <div className="flex items-center gap-1">
           <DocumentActions
-            onShow={() => setViewPlanId(row.id)}
+            onShow={() => router.push(ROUTES.treatmentDetail(row.id))}
             onPrint={() => printTreatmentPlan(row.id)}
             onShare={() => shareTreatmentPlan(row.id, row.patient?.firstName, row.patient?.lastName)}
           />
@@ -231,15 +229,6 @@ export function AdminTreatmentsView() {
         isPending={deleteMutation.isPending}
       />
 
-      <PlanViewerDialog
-        planId={viewPlanId}
-        onClose={() => setViewPlanId(null)}
-        onPrint={() => viewPlanId && printTreatmentPlan(viewPlanId)}
-        onShare={() => {
-          const plan = plans.find((p: any) => p.id === viewPlanId);
-          return shareTreatmentPlan(viewPlanId!, plan?.patient?.firstName, plan?.patient?.lastName);
-        }}
-      />
     </div>
   );
 }
