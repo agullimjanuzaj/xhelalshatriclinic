@@ -8,6 +8,16 @@ import { computePlanFinancials } from '../payments/plan-financials.util';
 import { ClinicSettingsService } from '../clinic-settings/clinic-settings.service';
 import { PushService } from '../push/push.service';
 
+function capitalizeName(value: string | undefined | null): string | undefined {
+  if (!value) return value as undefined;
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
 @Injectable()
 export class PatientsService {
   constructor(
@@ -224,7 +234,7 @@ export class PatientsService {
     const birthDate = dto.birthDate ? new Date(dto.birthDate) : undefined;
     const { birthDate: _bd, branchId: _ignored, ...restDto } = dto as any;
     const patient = await this.prisma.patient.create({
-      data: { ...restDto, branchId, birthDate, activeInClinic, status: null, activeInClinicSince: since, activeInClinicExpiresAt: expiresAt },
+      data: { ...restDto, firstName: capitalizeName(restDto.firstName), lastName: capitalizeName(restDto.lastName), branchId, birthDate, activeInClinic, status: null, activeInClinicSince: since, activeInClinicExpiresAt: expiresAt },
       include: { branch: { select: { id: true, name: true } } },
     });
 
@@ -344,6 +354,8 @@ export class PatientsService {
     if (data.birthDate) {
       data.birthDate = new Date(data.birthDate);
     }
+    if (data.firstName) data.firstName = capitalizeName(data.firstName);
+    if (data.lastName) data.lastName = capitalizeName(data.lastName);
     const updated = await this.prisma.patient.update({
       where: { id },
       data,
