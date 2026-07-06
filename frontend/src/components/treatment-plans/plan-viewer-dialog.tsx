@@ -11,7 +11,7 @@ import { formatDate, formatCurrency, getTreatmentTypeLabel } from '@/lib/utils';
 import {
   X, Printer, Share2, User, Phone, Building2, Stethoscope,
   ClipboardList, CheckCircle2, Circle, Calendar, FileText,
-  ChevronRight, HeartPulse,
+  HeartPulse, ArrowLeft,
 } from 'lucide-react';
 
 interface PlanViewerDialogProps {
@@ -50,7 +50,6 @@ export function PlanViewerDialog({ planId, onClose, onPrint, onShare }: PlanView
   }) as { data: any; isLoading: boolean };
 
   const patient = plan?.patient;
-  const completedSessions = plan?.sessions?.filter((s: any) => s.status === 'COMPLETED') || [];
   const allSessions = plan?.sessions || [];
 
   return (
@@ -60,32 +59,30 @@ export function PlanViewerDialog({ planId, onClose, onPrint, onShare }: PlanView
         <DialogPrimitive.Content
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
-          className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-[calc(100%-1rem)] max-w-[1100px] max-h-[90dvh] bg-background border shadow-xl sm:rounded-2xl overflow-hidden flex flex-col duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
+          className={[
+            // Mobile-first: fullscreen sheet (inset-0 covers 100% width + height)
+            'fixed inset-0 z-50 bg-background flex flex-col overflow-hidden',
+            // Desktop: centered dialog with rounded corners
+            'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2',
+            'sm:w-[90vw] sm:max-w-[1100px] sm:h-[90vh] sm:rounded-2xl sm:border sm:shadow-xl',
+            // Animation — mobile: slide up from bottom
+            'duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out',
+            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            'data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
+            // Animation — desktop: cancel slide, use zoom instead
+            'sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:slide-out-to-bottom-0',
+            'sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95',
+          ].join(' ')}
         >
           {/* Sticky header */}
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b bg-background/95 backdrop-blur shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full gradient-teal flex items-center justify-center shrink-0">
-                <ClipboardList size={15} className="text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">
-                  {isLoading ? '…' : patient ? `${patient.firstName} ${patient.lastName}` : 'Kontrollë'}
-                </p>
-                <p className="text-xs text-muted-foreground">Plani i trajtimit</p>
-              </div>
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 border-b bg-background shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <ArrowLeft size={18} className="text-muted-foreground shrink-0" />
+              <span className="text-sm font-semibold truncate">Kontrolla</span>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onPrint} title="Printo">
-                <Printer size={15} />
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onShare} title="Ndaj">
-                <Share2 size={15} />
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 ml-1" onClick={onClose} title="Mbyll">
-                <X size={16} />
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={onClose} title="Mbyll">
+              <X size={18} />
+            </Button>
           </div>
 
           {/* Scrollable body */}
@@ -174,7 +171,7 @@ export function PlanViewerDialog({ planId, onClose, onPrint, onShare }: PlanView
                     </SectionCard>
                   )}
 
-                  {/* Diagnosis only (no selected diagnoses) */}
+                  {/* Diagnosis only */}
                   {!plan.selectedDiagnoses?.length && plan.diagnosis && (
                     <SectionCard title="Diagnoza" icon={<Stethoscope size={14} />}>
                       <p className="text-sm">{plan.diagnosis}</p>
@@ -227,10 +224,7 @@ export function PlanViewerDialog({ planId, onClose, onPrint, onShare }: PlanView
                     <SectionCard title="Seancat" icon={<Calendar size={14} />}>
                       <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                         {allSessions.map((s: any, idx: number) => (
-                          <div
-                            key={s.id}
-                            className="flex items-start gap-3 py-2 border-b last:border-0"
-                          >
+                          <div key={s.id} className="flex items-start gap-3 py-2 border-b last:border-0">
                             <div className="mt-0.5 shrink-0">
                               {s.status === 'COMPLETED' ? (
                                 <CheckCircle2 size={16} className="text-teal-500" />
@@ -264,16 +258,16 @@ export function PlanViewerDialog({ planId, onClose, onPrint, onShare }: PlanView
             )}
           </div>
 
-          {/* Mobile sticky footer */}
-          <div className="sm:hidden border-t px-4 py-3 flex gap-2 bg-background shrink-0">
-            <Button variant="outline" className="flex-1 gap-2" onClick={onClose}>
-              <X size={14} />Mbyll
-            </Button>
+          {/* Sticky footer — always visible */}
+          <div className="border-t px-4 py-3 flex gap-2 bg-background shrink-0">
             <Button variant="outline" className="flex-1 gap-2" onClick={onPrint}>
               <Printer size={14} />Printo
             </Button>
             <Button variant="outline" className="flex-1 gap-2" onClick={onShare}>
               <Share2 size={14} />Ndaj
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2" onClick={onClose}>
+              <X size={14} />Mbyll
             </Button>
           </div>
         </DialogPrimitive.Content>
