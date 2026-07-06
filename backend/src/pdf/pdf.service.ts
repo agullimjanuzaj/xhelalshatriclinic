@@ -357,6 +357,7 @@ export class PdfService {
   <div class="section">
     <div class="section-title">Ankesat kryesore</div>
     ${complaintsHtml}
+    ${plan.complaintDescription ? `<div class="notes" style="margin-top:10px;">${esc(plan.complaintDescription)}</div>` : ''}
   </div>
 
   <div class="section">

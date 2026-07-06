@@ -42,9 +42,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       if (exception.code === 'P2002') {
-        // Unique constraint violation — should not normally reach here because
-        // services rename soft-deleted records to free unique constraints, but
-        // this is a safety net so the client never sees a raw 500.
         status = HttpStatus.CONFLICT;
         message = 'Ekziston tashmë një rekord me këtë vlerë. Provoni me një emër tjetër.';
       } else if (exception.code === 'P2025') {
@@ -54,15 +51,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
         status = HttpStatus.BAD_REQUEST;
         message = 'Vlera e referuar nuk ekziston. Kontrolloni të dhënat dhe provoni përsëri.';
         this.logger.error(`Prisma P2003 FK constraint: ${exception.message}`);
+      } else if (exception.code === 'P2021' || exception.code === 'P2022') {
+        // Table/column does not exist — schema out of sync with DB
+        this.logger.error(`Prisma schema mismatch (${exception.code}): ${exception.message}`, exception.stack);
+        status = HttpStatus.INTERNAL_SERVER_ERROR;
+        message = 'Gabim i sinkronizimit të bazës së të dhënave. Kontaktoni administratorin.';
       } else {
         this.logger.error(`Prisma ${exception.code}: ${exception.message}`, exception.stack);
         status = HttpStatus.INTERNAL_SERVER_ERROR;
-        message = 'Ndodhi një gabim gjatë operacionit në bazën e të dhënave.';
+        message = process.env.NODE_ENV === 'development'
+          ? `Gabim Prisma [${exception.code}]: ${exception.message.slice(0, 200)}`
+          : 'Ndodhi një gabim gjatë operacionit në bazën e të dhënave.';
       }
     } else if (exception instanceof Prisma.PrismaClientValidationError) {
       this.logger.error(`Prisma validation: ${exception.message}`);
       status = HttpStatus.BAD_REQUEST;
-      message = 'Të dhënat e dërguara nuk janë të vlefshme.';
+      message = process.env.NODE_ENV === 'development'
+        ? `Gabim validimi Prisma: ${exception.message.slice(0, 300)}`
+        : 'Të dhënat e dërguara nuk janë të vlefshme.';
     } else if (exception instanceof Error) {
       this.logger.error(exception.message, exception.stack);
     }
