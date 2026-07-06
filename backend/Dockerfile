@@ -26,4 +26,4 @@ RUN mkdir -p uploads
 
 EXPOSE 4000
 
-CMD sh -c "npx prisma db push --accept-data-loss && npx prisma db seed && node dist/main"
+CMD sh -c "node node_modules/prisma/build/index.js db push --accept-data-loss && (node node_modules/prisma/build/index.js db seed || echo 'Seed skipped (data already exists)') && node dist/main"

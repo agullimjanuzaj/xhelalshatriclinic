@@ -1,0 +1,28 @@
+# Environment files — never bake secrets into the image;
+# DATABASE_URL and all secrets are injected via docker-compose environment.
+.env
+.env.*
+
+# Development & OS noise
+node_modules
+dist
+.git
+.gitignore
+*.log
+npm-debug.log*
+
+# IDE & editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test artifacts
+coverage
+jest.config.*
+**/*.spec.ts
+**/*.e2e-spec.ts
+
+# TypeScript source — only compiled dist is needed in the runner stage
+# (builder stage needs src, but we COPY . . in builder so the full COPY is fine;
+# the .dockerignore prevents .env from leaking, which is the critical one)

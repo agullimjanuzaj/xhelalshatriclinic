@@ -53,9 +53,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         this.logger.error(`Prisma P2003 FK constraint: ${exception.message}`);
       } else if (exception.code === 'P2021' || exception.code === 'P2022') {
         // Table/column does not exist — schema out of sync with DB
-        this.logger.error(`Prisma schema mismatch (${exception.code}): ${exception.message}`, exception.stack);
+        // Extract the missing table/column name from the Prisma message for logging
+        const detail = exception.message.split('\n').slice(0, 3).join(' ').slice(0, 300);
+        this.logger.error(`Prisma schema mismatch (${exception.code}): ${detail}`, exception.stack);
         status = HttpStatus.INTERNAL_SERVER_ERROR;
-        message = 'Gabim i sinkronizimit të bazës së të dhënave. Kontaktoni administratorin.';
+        message = `Gabim sinkronizimi DB [${exception.code}]: ${detail}`;
       } else {
         this.logger.error(`Prisma ${exception.code}: ${exception.message}`, exception.stack);
         status = HttpStatus.INTERNAL_SERVER_ERROR;
