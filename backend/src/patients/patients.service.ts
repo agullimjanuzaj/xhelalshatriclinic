@@ -91,7 +91,7 @@ export class PatientsService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ activeInClinic: 'desc' }, { createdAt: 'desc' }],
         include: {
           branch: { select: { id: true, name: true, city: true } },
           _count: { select: { treatmentPlans: true, sessions: true } },

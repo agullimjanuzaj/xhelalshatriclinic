@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Loader2, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import { patientsApi } from '@/lib/api';
@@ -14,6 +13,8 @@ interface PatientOption {
   firstName: string;
   lastName: string;
   phone: string;
+  activeInClinic?: boolean;
+  activeInClinicExpiresAt?: string | null;
   branch?: { name: string } | null;
 }
 
@@ -43,10 +44,23 @@ export function PatientCombobox({ value, onChange, disabled, placeholder = 'Zgji
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['patient-combobox-search', debouncedQuery, activeInClinicOnly],
-    queryFn: () => patientsApi.getAll({ search: debouncedQuery, limit: 20, activeInClinic: activeInClinicOnly || undefined }),
+    queryFn: () => patientsApi.getAll({
+      search: debouncedQuery || undefined,
+      limit: 30,
+      activeInClinic: activeInClinicOnly || undefined,
+    }),
     enabled: open,
   });
   const patients: PatientOption[] = (data as any)?.data || [];
+
+  // Active patients come first from the backend (orderBy activeInClinic desc),
+  // but re-sort client-side as a safety net in case the response order shifts.
+  const sorted = React.useMemo(() => {
+    if (activeInClinicOnly) return patients;
+    const active = patients.filter((p) => p.activeInClinic);
+    const rest = patients.filter((p) => !p.activeInClinic);
+    return [...active, ...rest];
+  }, [patients, activeInClinicOnly]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -64,7 +78,16 @@ export function PatientCombobox({ value, onChange, disabled, placeholder = 'Zgji
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      {/* Portal renders into <body> so it's never clipped by an ancestor's
+          overflow:hidden. avoidCollisions + collisionPadding prevent the
+          dropdown from overflowing off the screen on small/mobile viewports. */}
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        avoidCollisions
+        collisionPadding={12}
+        sideOffset={4}
+      >
         <div className="flex items-center gap-2 border-b px-3 py-2">
           <Search className="h-4 w-4 shrink-0 opacity-50" />
           <input
@@ -75,7 +98,11 @@ export function PatientCombobox({ value, onChange, disabled, placeholder = 'Zgji
             className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="max-h-64 overflow-y-auto p-1">
+        {/* overflow-y-scroll (not auto) ensures iOS Safari creates a native
+            scroll layer; overscroll-contain stops the parent from scrolling
+            when the list is at its limit; max-h uses svh so the dropdown
+            never extends beyond the visible viewport on mobile. */}
+        <div className="max-h-[min(16rem,50svh)] overflow-y-scroll overscroll-contain p-1">
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Duke kërkuar...
@@ -84,13 +111,15 @@ export function PatientCombobox({ value, onChange, disabled, placeholder = 'Zgji
           {isError && (
             <div className="py-6 text-center text-sm text-red-600">Ndodhi një gabim gjatë kërkimit</div>
           )}
-          {!isLoading && !isError && patients.length === 0 && (
+          {!isLoading && !isError && sorted.length === 0 && (
             <div className="py-6 text-center text-sm text-muted-foreground">
-              {activeInClinicOnly ? 'Nuk ka pacientë aktivë në klinikë. Kërkoni recepsionin t\'i shënojë aktivë.' : 'Nuk u gjet asnjë pacient'}
+              {activeInClinicOnly
+                ? "Nuk ka pacientë aktivë në klinikë. Kërkoni recepsionin t'i shënojë aktivë."
+                : 'Nuk u gjet asnjë pacient'}
             </div>
           )}
           {!isLoading &&
-            patients.map((p) => (
+            sorted.map((p) => (
               <button
                 key={p.id}
                 type="button"
@@ -103,9 +132,16 @@ export function PatientCombobox({ value, onChange, disabled, placeholder = 'Zgji
                   value === p.id && 'bg-accent/60'
                 )}
               >
-                <div className="flex flex-col">
-                  <span className="font-medium">{p.firstName} {p.lastName}</span>
-                  <span className="text-xs text-muted-foreground">
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-medium">{p.firstName} {p.lastName}</span>
+                    {p.activeInClinic && (
+                      <span className="inline-flex items-center rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 shrink-0">
+                        Aktiv në klinikë
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground truncate">
                     {p.phone}{p.branch?.name ? ` · ${p.branch.name}` : ''}
                   </span>
                 </div>
