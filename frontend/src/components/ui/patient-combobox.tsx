@@ -98,11 +98,14 @@ export function PatientCombobox({ value, onChange, disabled, placeholder = 'Zgji
             className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
-        {/* overflow-y-scroll (not auto) ensures iOS Safari creates a native
-            scroll layer; overscroll-contain stops the parent from scrolling
-            when the list is at its limit; max-h uses svh so the dropdown
-            never extends beyond the visible viewport on mobile. */}
-        <div className="max-h-[min(16rem,50svh)] overflow-y-scroll overscroll-contain p-1">
+        {/* Stop wheel/touch events here so Radix Dialog's scroll-lock
+            (remove-scroll) never cancels them before they reach this list. */}
+        <div
+          className="max-h-[260px] overflow-y-auto overscroll-contain p-1 touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Duke kërkuar...
