@@ -51,7 +51,7 @@ export function PatientCombobox({ value, onChange, disabled, placeholder = 'Zgji
     }),
     enabled: open,
   });
-  const patients: PatientOption[] = (data as any)?.data || [];
+  const patients = React.useMemo<PatientOption[]>(() => (data as any)?.data || [], [data]);
 
   // Active patients come first from the backend (orderBy activeInClinic desc),
   // but re-sort client-side as a safety net in case the response order shifts.

@@ -20,7 +20,7 @@ export function SearchInput({ placeholder = 'Kërko...', value, onChange, classN
   const [localValue, setLocalValue] = useState(value || '');
   const debouncedValue = useDebounce(localValue, debounceMs);
 
-  useEffect(() => { onChange(debouncedValue); }, [debouncedValue]);
+  useEffect(() => { onChange(debouncedValue); }, [debouncedValue, onChange]);
   useEffect(() => { if (value !== undefined) setLocalValue(value); }, [value]);
 
   return (

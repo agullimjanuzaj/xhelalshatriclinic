@@ -13,14 +13,13 @@ import { PhysiotherapistCombobox } from '@/components/ui/physiotherapist-combobo
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { getPatientDetailPath, ROUTES } from '@/lib/routes';
-import { Search, Calendar, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Search, Calendar, Plus, Pencil, Trash2, CheckCircle2, CreditCard } from 'lucide-react';
 import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { CreateSessionDialog } from '@/components/sessions/create-session-dialog';
 import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { printSessionReport, shareSessionReport } from '@/lib/invoice';
-import { CheckCircle2, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function AdminSessionsView() {

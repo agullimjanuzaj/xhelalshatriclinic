@@ -23,6 +23,7 @@ import { GenerateComplaintDescriptionButton } from '@/components/treatment-plans
 import { DateInput } from '@/components/ui/date-input';
 import { useSuggestedConditions } from '@/hooks/use-suggested-conditions';
 import { Loader2, Building2, RefreshCcw, Sparkles } from 'lucide-react';
+import Image from 'next/image';
 import { formatCurrency, extractList } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 const ANATOMICAL_CATEGORIES = [
@@ -69,9 +70,6 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
   const isAdmin = role === 'ADMIN';
   const isEdit = !!plan;
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-
-  // Manager and physiotherapist may not create or edit Kontrolla — only ADMIN.
-  if (!isAdmin) return null;
 
   const { data: physiosData } = useQuery({
     queryKey: ['physiotherapists-select'],
@@ -265,6 +263,10 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Manager and physiotherapist may not create or edit Kontrolla — only ADMIN.
+  // Guard is here (after all hooks) to satisfy the Rules of Hooks.
+  if (!isAdmin) return null;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -343,9 +345,11 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                               {count}
                             </span>
                           )}
-                          <img
+                          <Image
                             src={img}
                             alt={label}
+                            width={72}
+                            height={72}
                             className={cn(
                               'w-[4.5rem] h-[4.5rem] object-contain flex-shrink-0',
                               isActive ? 'opacity-100' : 'opacity-70',

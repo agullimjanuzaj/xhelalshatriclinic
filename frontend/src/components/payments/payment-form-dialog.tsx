@@ -71,7 +71,8 @@ export function PaymentFormDialog({ open, onClose, onSuccess, defaultPatientId, 
 
   const treatmentPlanId = form.watch('treatmentPlanId');
   const selectedPlanId = treatmentPlanId && treatmentPlanId !== NO_PLAN ? treatmentPlanId : undefined;
-  const selectedSessionIds = form.watch('sessionIds') || [];
+  const rawSessionIds = form.watch('sessionIds');
+  const selectedSessionIds = useMemo(() => rawSessionIds ?? [], [rawSessionIds]);
 
   // Only completed-but-unpaid sessions are billable — once a payment marks a
   // session paid it should disappear from this picker on the next load.

@@ -53,14 +53,20 @@ export function AdminTreatmentsView() {
   const plans = (data as any)?.data || [];
   const meta = (data as any)?.meta;
 
-  const invalidateAfterChange = () => {
+  // Edit only refreshes the list — aggregate stats don't change when a plan is updated.
+  const invalidateAfterEdit = () => {
     queryClient.invalidateQueries({ queryKey: ['treatment-plans'] });
     queryClient.invalidateQueries({ queryKey: ['patients'] });
     queryClient.invalidateQueries({ queryKey: ['sessions'] });
     queryClient.invalidateQueries({ queryKey: ['payments'] });
     queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
-    queryClient.invalidateQueries({ queryKey: ['report-overview'] });
     queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
+  };
+
+  // Create/delete also refreshes stats (plan count and revenue totals change).
+  const invalidateAfterCreateOrDelete = () => {
+    invalidateAfterEdit();
+    queryClient.invalidateQueries({ queryKey: ['report-overview'] });
     queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
   };
 
@@ -69,7 +75,7 @@ export function AdminTreatmentsView() {
     onSuccess: () => {
       toast.success('Trajtimi u fshi me sukses!');
       setDeletePlan(null);
-      invalidateAfterChange();
+      invalidateAfterCreateOrDelete();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -208,7 +214,7 @@ export function AdminTreatmentsView() {
       {showPlanDialog && (
         <CreatePlanDialog
           open={showPlanDialog}
-          onClose={() => { setShowPlanDialog(false); invalidateAfterChange(); }}
+          onClose={() => { setShowPlanDialog(false); invalidateAfterCreateOrDelete(); }}
         />
       )}
 
@@ -216,7 +222,7 @@ export function AdminTreatmentsView() {
         <CreatePlanDialog
           open={!!editPlan}
           plan={editPlan}
-          onClose={() => { setEditPlan(null); invalidateAfterChange(); }}
+          onClose={() => { setEditPlan(null); invalidateAfterEdit(); }}
         />
       )}
 
