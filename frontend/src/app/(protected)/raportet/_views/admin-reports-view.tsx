@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { reportsApi, usersApi, branchesApi } from '@/lib/api';
 import { useReportsFilters } from '@/hooks/use-reports-filters';
@@ -44,8 +44,6 @@ export function AdminReportsView() {
   const [visitsApplied, setVisitsApplied] = useState<{ dateFrom?: string; dateTo?: string }>({ dateFrom: lm.from, dateTo: lm.to });
   const [visitsPage, setVisitsPage] = useState(1);
   const [visitsExporting, setVisitsExporting] = useState(false);
-  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
-
   const { data: usersData } = useQuery({ queryKey: ['users-select'], queryFn: () => usersApi.getAll({ limit: 200 }) });
   const users = (usersData as any)?.data || [];
   const { data: branchesData } = useQuery({ queryKey: ['branches-select'], queryFn: () => branchesApi.getAll() });

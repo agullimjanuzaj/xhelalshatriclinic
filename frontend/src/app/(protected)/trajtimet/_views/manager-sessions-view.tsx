@@ -9,7 +9,6 @@ import { ROUTES } from '@/lib/routes';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { SessionBadge } from '@/components/ui/session-badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { PhysiotherapistCombobox } from '@/components/ui/physiotherapist-combobox';
 import { formatDate } from '@/lib/utils';
 import { Calendar, CheckCircle2, CreditCard } from 'lucide-react';
