@@ -134,33 +134,45 @@ export class PaymentsService {
       }
     }
 
-    const invoiceNumber = await this.generateInvoiceNumber();
-
     // A payment record always represents money actually received right now —
     // there is no "pending" payment. The PAID/PARTIALLY_PAID/UNPAID status the
     // user sees describes the treatment plan's overall balance, not this
     // transaction, and is computed automatically in updatePlanPaymentStatus.
-    const payment = await this.prisma.payment.create({
-      data: {
-        patientId: dto.patientId,
-        branchId,
-        treatmentPlanId: dto.treatmentPlanId,
-        invoiceNumber,
-        amount: dto.amount,
-        paymentMethod: dto.paymentMethod,
-        paymentType: dto.paymentType,
-        notes: dto.notes,
-        status: PaymentStatus.PAID,
-        paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
-        createdByUserId: user.id,
-      },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        branch: { select: { id: true, name: true } },
-        treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true, totalAmount: true, amountPaid: true, paymentStatus: true } },
-        createdByUser: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
+    //
+    // Retry loop: generateInvoiceNumber uses findFirst+max which is not atomic,
+    // so two concurrent requests can race to the same number. On P2002 we
+    // regenerate (findFirst now sees the committed row) and retry up to 5 times.
+    let payment: any;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const invoiceNumber = await this.generateInvoiceNumber();
+      try {
+        payment = await this.prisma.payment.create({
+          data: {
+            patientId: dto.patientId,
+            branchId,
+            treatmentPlanId: dto.treatmentPlanId,
+            invoiceNumber,
+            amount: dto.amount,
+            paymentMethod: dto.paymentMethod,
+            paymentType: dto.paymentType,
+            notes: dto.notes,
+            status: PaymentStatus.PAID,
+            paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
+            createdByUserId: user.id,
+          },
+          include: {
+            patient: { select: { id: true, firstName: true, lastName: true } },
+            branch: { select: { id: true, name: true } },
+            treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true, totalAmount: true, amountPaid: true, paymentStatus: true } },
+            createdByUser: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+        break;
+      } catch (e: any) {
+        if (e?.code === 'P2002' && attempt < 4) continue;
+        throw e;
+      }
+    }
 
     if (targetSessions.length) {
       await this.prisma.session.updateMany({
@@ -398,10 +410,13 @@ export class PaymentsService {
 
   private async generateInvoiceNumber(): Promise<string> {
     const year = dayjs().year();
-    const count = await this.prisma.payment.count({
-      where: { invoiceNumber: { startsWith: `FAT-${year}` } },
+    const last = await this.prisma.payment.findFirst({
+      where: { invoiceNumber: { startsWith: `FAT-${year}-` } },
+      orderBy: { invoiceNumber: 'desc' },
+      select: { invoiceNumber: true },
     });
-    return `FAT-${year}-${String(count + 1).padStart(4, '0')}`;
+    const next = last ? parseInt(last.invoiceNumber.split('-')[2], 10) + 1 : 1;
+    return `FAT-${year}-${String(next).padStart(4, '0')}`;
   }
 
   private async notifyPayment(payment: any, user: any) {
