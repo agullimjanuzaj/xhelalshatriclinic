@@ -4,7 +4,7 @@ import { Search, X } from 'lucide-react';
 import { Input } from './input';
 import { Button } from './button';
 import { cn } from '@/lib/utils';
-import { useCallback, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useEffect } from 'react';
 
@@ -20,7 +20,13 @@ export function SearchInput({ placeholder = 'Kërko...', value, onChange, classN
   const [localValue, setLocalValue] = useState(value || '');
   const debouncedValue = useDebounce(localValue, debounceMs);
 
-  useEffect(() => { onChange(debouncedValue); }, [debouncedValue, onChange]);
+  // Store the latest onChange in a ref so the debounce effect never captures
+  // a stale closure and never re-runs just because the parent re-rendered
+  // (which would reset pagination to page 1 on every query refetch).
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  useEffect(() => { onChangeRef.current(debouncedValue); }, [debouncedValue]);
   useEffect(() => { if (value !== undefined) setLocalValue(value); }, [value]);
 
   return (
