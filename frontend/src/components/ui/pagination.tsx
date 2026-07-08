@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -35,26 +36,41 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
   const pages = buildPageList(page, totalPages);
 
   return (
-    <div className="flex items-center gap-1">
-      <Button variant="outline" size="sm" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
+    <div className="flex items-center justify-center flex-wrap gap-1">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        aria-label="Faqja e mëparshme"
+      >
         <ChevronLeft size={14} />
       </Button>
       {pages.map((p, i) =>
         p === '...' ? (
-          <span key={`ellipsis-${i}`} className="px-2 text-sm text-muted-foreground">...</span>
+          <span key={`ellipsis-${i}`} className="w-8 text-center text-sm text-muted-foreground">…</span>
         ) : (
           <Button
             key={p}
             variant={p === page ? 'default' : 'outline'}
             size="sm"
-            className={p === page ? 'gradient-teal text-white border-0' : ''}
+            className={cn('h-8 min-w-[2rem] px-2.5', p === page ? 'gradient-teal text-white border-0' : '')}
             onClick={() => onPageChange(p)}
+            aria-current={p === page ? 'page' : undefined}
           >
             {p}
           </Button>
         ),
       )}
-      <Button variant="outline" size="sm" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= totalPages}
+        aria-label="Faqja e ardhshme"
+      >
         <ChevronRight size={14} />
       </Button>
     </div>

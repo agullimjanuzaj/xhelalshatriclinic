@@ -129,15 +129,15 @@ export function DataTable<T extends object>({
       </div>
 
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} nga {pagination.total}
-          </span>
+        <div className="flex flex-col items-center gap-1.5">
           <Pagination
             page={pagination.page}
             totalPages={pagination.totalPages}
             onPageChange={(p) => onPageChange?.(p)}
           />
+          <span className="text-xs text-muted-foreground">
+            {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} nga {pagination.total}
+          </span>
         </div>
       )}
     </div>
