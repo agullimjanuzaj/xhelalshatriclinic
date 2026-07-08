@@ -20,7 +20,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { PatientCombobox } from '@/components/ui/patient-combobox';
 import { GenerateNotesButton } from '@/components/treatment-plans/generate-notes-button';
 import { GenerateComplaintDescriptionButton } from '@/components/treatment-plans/generate-complaint-description-button';
-import { DateInput } from '@/components/ui/date-input';
 import { useSuggestedConditions } from '@/hooks/use-suggested-conditions';
 import { Loader2, Building2, RefreshCcw, Sparkles } from 'lucide-react';
 import Image from 'next/image';
@@ -48,7 +47,6 @@ const schema = z.object({
   sessionFee: z.coerce.number().min(0),
   manualTotal: z.boolean(),
   totalAmount: z.coerce.number().min(0).optional(),
-  startDate: z.string().min(1, 'Data e fillimit është e detyrueshme'),
   assignedPhysiotherapistId: z.string().optional().or(z.literal('')),
   notes: z.string().optional(),
   complaintDescription: z.string().optional(),
@@ -105,7 +103,6 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
     sessionFee: Number(plan.sessionFee),
     manualTotal: false,
     totalAmount: Number(plan.totalAmount),
-    startDate: plan.startDate ? new Date(plan.startDate).toISOString().slice(0, 10) : '',
     assignedPhysiotherapistId: plan.assignedPhysiotherapistId || '',
     notes: plan.notes || '',
     complaintDescription: plan.complaintDescription || '',
@@ -119,7 +116,6 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
     sessionFee: 20,
     manualTotal: false,
     totalAmount: undefined,
-    startDate: new Date().toISOString().slice(0, 10),
     assignedPhysiotherapistId: '',
     notes: '',
     complaintDescription: '',
@@ -238,7 +234,6 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
       const payload = {
         ...d,
         assignedPhysiotherapistId: d.assignedPhysiotherapistId || undefined,
-        startDate: new Date(d.startDate).toISOString(),
         totalAmount: d.manualTotal ? d.totalAmount : undefined,
         manualTotal: undefined,
       };
@@ -550,16 +545,6 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                 <p className="text-sm">Totali i llogaritur automatikisht: <span className="font-semibold">{formatCurrency(computedTotal)}</span></p>
               )}
             </div>
-
-            <FormField control={form.control} name="startDate" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Data e fillimit</FormLabel>
-                <FormControl>
-                  <DateInput value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
 
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>

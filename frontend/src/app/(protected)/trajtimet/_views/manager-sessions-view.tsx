@@ -5,13 +5,14 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import { useSession } from 'next-auth/react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { sessionsApi } from '@/lib/api';
-import { ROUTES } from '@/lib/routes';
+import { ROUTES, getPatientDetailPath } from '@/lib/routes';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { SessionBadge } from '@/components/ui/session-badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { PhysiotherapistCombobox } from '@/components/ui/physiotherapist-combobox';
 import { formatDate } from '@/lib/utils';
-import { Calendar, CheckCircle2, CreditCard } from 'lucide-react';
+import { Search, Calendar, CheckCircle2, CreditCard } from 'lucide-react';
 import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
@@ -26,6 +27,7 @@ export function ManagerSessionsView() {
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const [physiotherapistId, setPhysiotherapistId] = useState('');
   const [paySession, setPaySession] = useState<any>(null);
   const branchId = session?.user?.userBranches?.[0]?.branchId;
@@ -38,9 +40,10 @@ export function ManagerSessionsView() {
   };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['sessions-manager', page, branchId, physiotherapistId, dateFrom, dateTo],
+    queryKey: ['sessions-manager', page, branchId, physiotherapistId, dateFrom, dateTo, search],
     queryFn: () => sessionsApi.getAll({
       page, limit: 24, branchId, physiotherapistId: physiotherapistId || undefined,
+      search: search || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo ? `${dateTo}T23:59:59` : undefined,
     }),
@@ -111,6 +114,15 @@ export function ManagerSessionsView() {
 
       {/* Filters — stacked on mobile, row on md+ */}
       <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-end md:gap-3">
+        <div className="relative w-full md:flex-1 md:max-w-xs">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Kërko pacient..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="pl-9 w-full"
+          />
+        </div>
         <div className="w-full md:w-56">
           <PhysiotherapistCombobox
             value={physiotherapistId}
@@ -161,6 +173,7 @@ export function ManagerSessionsView() {
         pagination={meta}
         onPageChange={setPage}
         emptyMessage="Nuk ka trajtime"
+        onRowClick={(row: any) => router.push(getPatientDetailPath('MANAGER', row.patientId))}
       />
 
       {paySession && (

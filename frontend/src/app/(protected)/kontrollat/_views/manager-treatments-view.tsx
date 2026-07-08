@@ -8,8 +8,10 @@ import { treatmentPlansApi } from '@/lib/api';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { PaymentBadge } from '@/components/ui/payment-badge';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { getTreatmentTypeLabel, formatDate } from '@/lib/utils';
+import { Search } from 'lucide-react';
 import { getPatientDetailPath, ROUTES } from '@/lib/routes';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { printTreatmentPlan, shareTreatmentPlan } from '@/lib/invoice';
@@ -22,6 +24,7 @@ export function ManagerTreatmentsView() {
   const [page, setPage] = useState(1);
 
   const branchId = session?.user?.userBranches?.[0]?.branchId;
+  const [search, setSearch] = useState('');
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
 
@@ -33,10 +36,11 @@ export function ManagerTreatmentsView() {
   };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['treatment-plans', page, branchId, dateFrom, dateTo],
+    queryKey: ['treatment-plans', page, branchId, search, dateFrom, dateTo],
     queryFn: () => treatmentPlansApi.getAll({
       page, limit: 24,
       branchId,
+      search: search || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
     }),
@@ -97,26 +101,37 @@ export function ManagerTreatmentsView() {
         <p className="text-sm text-muted-foreground">Kontrollat e degës suaj</p>
       </div>
 
-      <div className="flex gap-2 w-full sm:w-auto">
-        <div className="flex-1 sm:flex-none">
-          <label className="text-xs text-muted-foreground block mb-1">Prej</label>
-          <ClearableDateInput
-            value={dateFrom}
-            onChange={(v) => setDateParam('dateFrom', v)}
-            onClear={() => setDateParam('dateFrom', '')}
-            max={dateTo || undefined}
-            className="w-full sm:w-36"
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-end md:gap-3">
+        <div className="relative w-full md:flex-1 md:max-w-xs">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Kërko pacient..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="pl-9 w-full"
           />
         </div>
-        <div className="flex-1 sm:flex-none">
-          <label className="text-xs text-muted-foreground block mb-1">Deri</label>
-          <ClearableDateInput
-            value={dateTo}
-            onChange={(v) => setDateParam('dateTo', v)}
-            onClear={() => setDateParam('dateTo', '')}
-            min={dateFrom || undefined}
-            className="w-full sm:w-36"
-          />
+        <div className="flex gap-2 w-full sm:w-auto md:w-auto">
+          <div className="flex-1 sm:flex-none">
+            <label className="text-xs text-muted-foreground block mb-1">Prej</label>
+            <ClearableDateInput
+              value={dateFrom}
+              onChange={(v) => setDateParam('dateFrom', v)}
+              onClear={() => setDateParam('dateFrom', '')}
+              max={dateTo || undefined}
+              className="w-full sm:w-36"
+            />
+          </div>
+          <div className="flex-1 sm:flex-none">
+            <label className="text-xs text-muted-foreground block mb-1">Deri</label>
+            <ClearableDateInput
+              value={dateTo}
+              onChange={(v) => setDateParam('dateTo', v)}
+              onClear={() => setDateParam('dateTo', '')}
+              min={dateFrom || undefined}
+              className="w-full sm:w-36"
+            />
+          </div>
         </div>
       </div>
 
