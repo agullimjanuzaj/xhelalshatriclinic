@@ -13,7 +13,7 @@ import { getPatientDetailPath } from '@/lib/routes';
 
 interface DebtsTableProps {
   branchId?: string;
-  onRegisterPayment: (patientId: string, planId: string) => void;
+  onRegisterPayment: (patientId: string, planId: string | null, sessionId?: string) => void;
 }
 
 export function DebtsTable({ branchId, onRegisterPayment }: DebtsTableProps) {
@@ -49,7 +49,7 @@ export function DebtsTable({ branchId, onRegisterPayment }: DebtsTableProps) {
       header: 'Veprimet',
       accessor: (row) => (
         <div data-stop-row-click>
-          <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => onRegisterPayment(row.patient.id, row.planId)}>
+          <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => onRegisterPayment(row.patient.id, row.planId, row.sessionId || undefined)}>
             <CreditCard size={13} />Regjistro pagesë
           </Button>
         </div>

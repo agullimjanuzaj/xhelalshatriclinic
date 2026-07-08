@@ -380,11 +380,12 @@ export class PaymentsService {
       branchId = branchId && userBranchIds.includes(branchId) ? branchId : userBranchIds[0];
     }
 
-    const where: any = { deletedAt: null };
-    if (branchId) where.patient = { branchId };
+    // ----- Plan-based debts -----
+    const planWhere: any = { deletedAt: null };
+    if (branchId) planWhere.patient = { branchId };
 
     const plans = await this.prisma.treatmentPlan.findMany({
-      where,
+      where: planWhere,
       include: {
         patient: { select: { id: true, firstName: true, lastName: true, phone: true, branch: { select: { id: true, name: true } } } },
         payments: { where: { deletedAt: null }, orderBy: { paidAt: 'desc' }, take: 1, select: { paidAt: true } },
@@ -392,20 +393,58 @@ export class PaymentsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const debts = plans
+    const planDebts = plans
       .map((p) => ({
-        planId: p.id,
+        planId: p.id as string | null,
+        sessionId: null as string | null,
         patient: { id: p.patient.id, firstName: p.patient.firstName, lastName: p.patient.lastName, phone: p.patient.phone },
         branch: p.patient.branch,
         lastPaymentAt: p.payments[0]?.paidAt || null,
         ...computePlanFinancials(p),
       }))
-      .filter((d) => d.finalRemainingBalance > 0)
+      .filter((d) => d.finalRemainingBalance > 0);
+
+    // ----- Standalone session debts (no treatmentPlan, completed, unpaid) -----
+    const sessionWhere: any = {
+      deletedAt: null,
+      treatmentPlanId: null,
+      status: 'COMPLETED',
+      isPaid: false,
+    };
+    if (branchId) sessionWhere.patient = { branchId };
+
+    const standaloneSessions = await this.prisma.session.findMany({
+      where: sessionWhere,
+      include: {
+        patient: { select: { id: true, firstName: true, lastName: true, phone: true, branch: { select: { id: true, name: true } } } },
+      },
+    });
+
+    const sessionDebts = standaloneSessions.map((s) => {
+      const amount = Number(s.amount || 0);
+      return {
+        planId: null as string | null,
+        sessionId: s.id,
+        patient: { id: s.patient.id, firstName: s.patient.firstName, lastName: s.patient.lastName, phone: s.patient.phone },
+        branch: s.patient.branch,
+        lastPaymentAt: null as Date | null,
+        totalTreatmentValue: amount,
+        currentEarnedAmount: amount,
+        totalPaidAmount: 0,
+        currentDebt: amount,
+        finalRemainingBalance: amount,
+        prepaidAmount: 0,
+        paymentStatus: 'UNPAID' as string,
+      };
+    });
+
+    // Combine and sort by currentDebt DESC
+    const allDebts = [...planDebts, ...sessionDebts]
       .sort((a, b) => b.currentDebt - a.currentDebt);
 
-    const total = debts.length;
+    const total = allDebts.length;
     const skip = (page - 1) * limit;
-    return { data: debts.slice(skip, skip + limit), meta: buildPaginationMeta(total, page, limit) };
+    return { data: allDebts.slice(skip, skip + limit), meta: buildPaginationMeta(total, page, limit) };
   }
 
   private async generateInvoiceNumber(): Promise<string> {

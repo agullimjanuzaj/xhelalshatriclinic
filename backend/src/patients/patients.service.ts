@@ -202,6 +202,20 @@ export class PatientsService {
       }),
       { totalTreatmentValue: 0, currentEarnedAmount: 0, totalPaidAmount: 0, currentDebt: 0, finalRemainingBalance: 0, prepaidAmount: 0 },
     );
+    // Include standalone sessions (no treatmentPlan, completed) in financials
+    for (const s of (patient as any).sessions || []) {
+      if (s.treatmentPlanId || s.status !== 'COMPLETED') continue;
+      const fee = Number(s.amount || 0);
+      financials.totalTreatmentValue += fee;
+      financials.currentEarnedAmount += fee;
+      if (s.isPaid) {
+        financials.totalPaidAmount += fee;
+      } else {
+        financials.currentDebt += fee;
+        financials.finalRemainingBalance += fee;
+      }
+    }
+
     let paymentStatus: string = 'UNPAID';
     if (financials.totalPaidAmount > 0 && financials.totalPaidAmount >= financials.totalTreatmentValue) paymentStatus = 'PAID';
     else if (financials.totalPaidAmount > 0) paymentStatus = 'PARTIALLY_PAID';

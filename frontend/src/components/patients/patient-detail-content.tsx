@@ -475,7 +475,27 @@ export function PatientDetailContent({ id }: { id: string }) {
               </CardContent>
             </Card>
           ))}
-          {!(patient.treatmentPlans || []).some((p: any) => (p.financials?.finalRemainingBalance || 0) > 0) && (
+          {(patient.sessions || []).filter((s: any) => !s.treatmentPlanId && s.status === 'COMPLETED' && !s.isPaid).map((s: any) => (
+            <Card key={s.id}>
+              <CardContent className="pt-5 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="font-medium text-sm">Trajtim pa Kontrollë</p>
+                  <p className="text-xs text-muted-foreground">Seancë e përfunduar · Çmimi: {formatCurrency(s.amount)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Borxhi aktual</p>
+                  <p className="font-bold text-red-600">{formatCurrency(s.amount)}</p>
+                </div>
+                {canManageMoney && (
+                  <Button size="sm" className="gap-1.5 gradient-teal text-white border-0" onClick={() => { setPaymentContext({ sessionId: s.id }); setShowPaymentDialog(true); }}>
+                    <Plus size={13} />Regjistro pagesë
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          {!(patient.treatmentPlans || []).some((p: any) => (p.financials?.finalRemainingBalance || 0) > 0) &&
+           !(patient.sessions || []).some((s: any) => !s.treatmentPlanId && s.status === 'COMPLETED' && !s.isPaid) && (
             <p className="text-sm text-muted-foreground text-center py-10">Nuk ka borxhe të hapura</p>
           )}
         </TabsContent>
@@ -567,6 +587,7 @@ export function PatientDetailContent({ id }: { id: string }) {
           payment={editPayment}
           defaultPatientId={id}
           defaultPlanId={paymentContext.planId}
+          defaultSessionId={paymentContext.sessionId}
           onClose={() => { setShowPaymentDialog(false); setEditPayment(null); setPaymentContext({}); }}
           onSuccess={() => { setShowPaymentDialog(false); setEditPayment(null); setPaymentContext({}); invalidateAll(); }}
         />

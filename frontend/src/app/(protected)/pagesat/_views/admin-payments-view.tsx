@@ -28,6 +28,7 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
   const [deletePayment, setDeletePayment] = useState<any>(null);
   const [debtPatientId, setDebtPatientId] = useState<string | undefined>();
   const [debtPlanId, setDebtPlanId] = useState<string | undefined>();
+  const [debtSessionId, setDebtSessionId] = useState<string | undefined>();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['payments', page, search],
@@ -57,7 +58,7 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const closeForm = () => { setShowForm(false); setEditPayment(null); setDebtPatientId(undefined); setDebtPlanId(undefined); };
+  const closeForm = () => { setShowForm(false); setEditPayment(null); setDebtPatientId(undefined); setDebtPlanId(undefined); setDebtSessionId(undefined); };
 
   const columns = [
     {
@@ -161,7 +162,7 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
         </TabsContent>
 
         <TabsContent value="debts">
-          <DebtsTable onRegisterPayment={(patientId, planId) => { setDebtPatientId(patientId); setDebtPlanId(planId); setShowForm(true); }} />
+          <DebtsTable onRegisterPayment={(patientId, planId, sessionId) => { setDebtPatientId(patientId); setDebtPlanId(planId || undefined); setDebtSessionId(sessionId); setShowForm(true); }} />
         </TabsContent>
       </Tabs>
 
@@ -173,6 +174,7 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
           onSuccess={() => { invalidateAfterChange(); closeForm(); }}
           defaultPatientId={debtPatientId}
           defaultPlanId={debtPlanId}
+          defaultSessionId={debtSessionId}
         />
       )}
 
