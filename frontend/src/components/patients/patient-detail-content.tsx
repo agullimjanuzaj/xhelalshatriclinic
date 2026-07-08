@@ -241,17 +241,17 @@ export function PatientDetailContent({ id }: { id: string }) {
           <div className="flex flex-wrap gap-2 mt-4">
             {canManagePatient && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowEditPatient(true)}>
-                <Pencil size={13} />Ndrysho pacientin
+                <Pencil size={13} />Ndrysho
               </Button>
             )}
             {canManagePatient && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowPlanDialog(true)}>
-                <Plus size={13} />Shto trajtim
+                <Plus size={13} />Shto Kontrollë
               </Button>
             )}
             {canCreateSession && (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShowSessionDialog(true)}>
-                <Plus size={13} />Shto seancë
+                <Plus size={13} />Shto Trajtim
               </Button>
             )}
             {canManageMoney && (
@@ -266,8 +266,8 @@ export function PatientDetailContent({ id }: { id: string }) {
       <Tabs value={effectiveTab} onValueChange={handleTabChange}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="overview">Përmbledhje</TabsTrigger>
-          <TabsTrigger value="treatments">Trajtimet</TabsTrigger>
-          <TabsTrigger value="sessions">Seancat</TabsTrigger>
+          <TabsTrigger value="treatments">Kontrollat</TabsTrigger>
+          <TabsTrigger value="sessions">Trajtimet</TabsTrigger>
           {!isPhysio && <TabsTrigger value="payments">Pagesat</TabsTrigger>}
           {!isPhysio && <TabsTrigger value="debts">Borxhet</TabsTrigger>}
           <TabsTrigger value="advice">Këshilla</TabsTrigger>
@@ -346,7 +346,7 @@ export function PatientDetailContent({ id }: { id: string }) {
                 <div className="flex flex-wrap gap-2 pt-1">
                   {canCreateSession && (
                     <Button variant="outline" size="sm" className="gap-1.5 h-8" onClick={() => setShowSessionDialog(true)}>
-                      <Plus size={12} />Shto seancë
+                      <Plus size={12} />Shto Trajtim
                     </Button>
                   )}
                   {canManageMoney && (
@@ -368,7 +368,7 @@ export function PatientDetailContent({ id }: { id: string }) {
               </CardContent>
             </Card>
           ))}
-          {!patient.treatmentPlans?.length && <p className="text-sm text-muted-foreground text-center py-10">Nuk ka trajtime ende</p>}
+          {!patient.treatmentPlans?.length && <p className="text-sm text-muted-foreground text-center py-10">Nuk ka kontrolla ende</p>}
         </TabsContent>
 
         {/* SESSIONS */}
@@ -404,7 +404,7 @@ export function PatientDetailContent({ id }: { id: string }) {
                     </div>
                   </div>
                 ))}
-                {!patient.sessions?.length && <p className="text-sm text-muted-foreground px-4 py-10 text-center">Nuk ka seanca</p>}
+                {!patient.sessions?.length && <p className="text-sm text-muted-foreground px-4 py-10 text-center">Nuk ka trajtime</p>}
               </div>
             </CardContent>
           </Card>

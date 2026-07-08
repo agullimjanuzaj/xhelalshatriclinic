@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { TreatmentTypesChecklist } from '@/components/sessions/treatment-types-checklist';
 import { GenerateRecommendationButton } from '@/components/sessions/generate-recommendation-button';
+import { GenerateSessionNoteButton } from '@/components/sessions/generate-session-note-button';
 import { Loader2 } from 'lucide-react';
 
 const schema = z.object({
@@ -144,7 +145,13 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
 
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
-                <FormLabel>Shënim i shkurtër</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Shënim i shkurtër</FormLabel>
+                  <GenerateSessionNoteButton
+                    treatmentTypes={watchedTypes}
+                    onGenerated={(text) => form.setValue('notes', text)}
+                  />
+                </div>
                 <FormControl><Textarea autoResize rows={2} {...field} /></FormControl>
                 <FormMessage />
               </FormItem>

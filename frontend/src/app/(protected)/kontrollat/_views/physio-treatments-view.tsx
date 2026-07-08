@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { treatmentPlansApi } from '@/lib/api';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { ClearableDateInput } from '@/components/ui/clearable-date-input';
+import { SearchInput } from '@/components/ui/search-input';
 import { getTreatmentTypeLabel, formatDate } from '@/lib/utils';
 import { getPatientDetailPath, ROUTES } from '@/lib/routes';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,7 @@ export function PhysioTreatmentsView() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
 
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
@@ -34,11 +36,12 @@ export function PhysioTreatmentsView() {
   };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['treatment-plans-physio', page, dateFrom, dateTo],
+    queryKey: ['treatment-plans-physio', page, dateFrom, dateTo, search],
     queryFn: () => treatmentPlansApi.getAll({
       page, limit: 24,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
+      search: search || undefined,
     }),
     placeholderData: keepPreviousData,
   });
@@ -99,6 +102,12 @@ export function PhysioTreatmentsView() {
         <h1 className="text-xl font-bold">Kontrollat</h1>
         <p className="text-sm text-muted-foreground">Kontrollat e pacientëve të caktuar për ju</p>
       </div>
+
+      <SearchInput
+        placeholder="Kërko sipas emrit të pacientit..."
+        onChange={(v) => { setSearch(v); setPage(1); }}
+        className="w-full sm:w-72"
+      />
 
       <div className="flex gap-2 w-full sm:w-auto">
         <div className="flex-1 sm:flex-none">

@@ -590,16 +590,13 @@ export class ReportsService {
     const rows = sessions.map((s) => this.mapVisitSession(s));
 
     const wsData = [
-      ['Emri', 'Mbiemri', 'Data e lindjes', 'Dega', 'Data e paraqitjes', 'Trajtimi', 'Fizioterapeuti', 'Shënim'],
-      ...rows.map((r) => [r.patientFirstName, r.patientLastName, r.birthDate, r.branch, r.visitDate, r.treatment, r.physiotherapist, r.notes]),
+      ['Emri', 'Mbiemri', 'Data e lindjes', 'Dega', 'Data e paraqitjes'],
+      ...rows.map((r) => [r.patientFirstName, r.patientLastName, r.birthDate, r.branch, r.visitDate]),
     ];
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [
-      { wch: 14 }, { wch: 14 }, { wch: 15 }, { wch: 18 },
-      { wch: 16 }, { wch: 30 }, { wch: 20 }, { wch: 30 },
-    ];
+    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 15 }, { wch: 18 }, { wch: 16 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Pacientët');
 
     const dateLabel = (d: string | undefined) => d ? dayjs(d).format('DD-MM-YYYY') : 'te-gjitha';

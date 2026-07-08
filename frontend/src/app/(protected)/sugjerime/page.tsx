@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { AlertCircle, Stethoscope, Loader2, RefreshCcw, Plus, Edit, Trash2, CheckCircle2, Link2, Tag } from 'lucide-react';
+import { Stethoscope, Loader2, RefreshCcw, Plus, Edit, Trash2, CheckCircle2, Link2, Tag } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -29,11 +29,9 @@ type Symptom = typeof SYMPTOMS[number];
 
 function SymptomSuggestionTool() {
   const [selectedSymptoms, setSelectedSymptoms] = useState<Symptom[]>([]);
-  const [disclaimer, setDisclaimer] = useState('');
 
   const fetchSuggestions = useCallback(async () => {
     const res: any = await treatmentsApi.getSuggestions(selectedSymptoms);
-    setDisclaimer(res?.data?.disclaimer || '');
     return res?.data?.conditions || [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSymptoms]);
@@ -49,13 +47,6 @@ function SymptomSuggestionTool() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl">
-        <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-amber-800 dark:text-amber-200">
-          <strong>Kujdes:</strong> Kjo është vetëm një sugjerim i sistemit dhe nuk përbën diagnozë mjekësore.
-          Gjithmonë konsultohuni me mjekun specialist.
-        </p>
-      </div>
       <Card>
         <CardHeader><CardTitle className="text-base">Zgjidh Simptomat</CardTitle></CardHeader>
         <CardContent>
@@ -118,12 +109,6 @@ function SymptomSuggestionTool() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Nuk u gjet asnjë gjendje e sugjeruar</p>
-            )}
-            {disclaimer && (
-              <div className="flex items-start gap-2 p-3 bg-muted rounded-lg mt-4">
-                <AlertCircle size={14} className="text-muted-foreground flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground">{disclaimer}</p>
-              </div>
             )}
             <div className="flex flex-wrap gap-1 pt-2 border-t border-border">
               <span className="text-xs text-muted-foreground">Simptomat:</span>
@@ -538,10 +523,7 @@ export default function SuggestionsPage() {
       )}
 
       {/* Legacy enum-based suggestions tool */}
-      <section className="space-y-3">
-        <h2 className="font-semibold text-base">Sistemi i sugjerimeve klinike</h2>
-        <SymptomSuggestionTool />
-      </section>
+      <SymptomSuggestionTool />
     </div>
   );
 }

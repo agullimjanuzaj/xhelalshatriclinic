@@ -20,6 +20,7 @@ import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { CheckCircle, CheckCircle2, Calendar, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { ClearableDateInput } from '@/components/ui/clearable-date-input';
+import { SearchInput } from '@/components/ui/search-input';
 import { CreateSessionDialog } from '@/components/sessions/create-session-dialog';
 import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
 import { TreatmentTypesChecklist } from '@/components/sessions/treatment-types-checklist';
@@ -49,6 +50,7 @@ export function PhysioSessionsView() {
   const dateFrom = searchParams.get('dateFrom') || '';
   const dateTo = searchParams.get('dateTo') || '';
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const [completeId, setCompleteId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [editSession, setEditSession] = useState<any>(null);
@@ -62,11 +64,12 @@ export function PhysioSessionsView() {
   };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['sessions-physio', page, dateFrom, dateTo, session?.user?.id],
+    queryKey: ['sessions-physio', page, dateFrom, dateTo, session?.user?.id, search],
     queryFn: () => sessionsApi.getAll({
       page, limit: 24, physiotherapistId: session?.user?.id,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo ? `${dateTo}T23:59:59` : undefined,
+      search: search || undefined,
     }),
     enabled: !!session?.user?.id,
     placeholderData: keepPreviousData,
@@ -174,6 +177,12 @@ export function PhysioSessionsView() {
           <Plus size={16} />Trajtim i ri
         </Button>
       </div>
+
+      <SearchInput
+        placeholder="Kërko sipas emrit të pacientit..."
+        onChange={(v) => { setSearch(v); setPage(1); }}
+        className="w-full sm:w-72"
+      />
 
       {/* Date range filters — stacked on mobile */}
       <div className="flex gap-2 w-full sm:w-auto">

@@ -73,6 +73,15 @@ export class SessionsService {
       and.push({ OR: [{ physiotherapistId }, { completedByUserId: physiotherapistId }] });
     }
 
+    if (search) {
+      and.push({
+        OR: [
+          { patient: { firstName: { contains: search, mode: 'insensitive' } } },
+          { patient: { lastName: { contains: search, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
     if (dateFrom || dateTo) {
       // Sessions are normally created already-COMPLETED with no explicit
       // scheduledAt, so filtering on scheduledAt alone silently excludes
@@ -110,7 +119,7 @@ export class SessionsService {
           branch: { select: { id: true, name: true } },
           physiotherapist: { select: { id: true, firstName: true, lastName: true } },
           completedByUser: { select: { id: true, firstName: true, lastName: true } },
-          treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true } },
+          treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true, paymentStatus: true, amountPaid: true } },
         },
       }),
       this.prisma.session.count({ where }),
@@ -163,6 +172,24 @@ export class SessionsService {
       const isActiveNow = patient.activeInClinic && patient.activeInClinicExpiresAt && patient.activeInClinicExpiresAt > new Date();
       if (!isActiveNow) {
         throw new ForbiddenException('Pacienti nuk është aktiv në klinikë ose koha e aktivizimit ka skaduar.');
+      }
+
+      // Enforce one session per active-in-clinic period. If the previous session
+      // for this period was deleted, a new one is allowed (no living session found).
+      if (patient.activeInClinicSince) {
+        const existing = await this.prisma.session.findFirst({
+          where: {
+            patientId: patient.id,
+            deletedAt: null,
+            createdAt: {
+              gte: patient.activeInClinicSince,
+              ...(patient.activeInClinicExpiresAt ? { lte: patient.activeInClinicExpiresAt } : {}),
+            },
+          },
+        });
+        if (existing) {
+          throw new BadRequestException('Ky pacient tashmë ka një trajtim të regjistruar gjatë kësaj periudhe aktive. Fshijeni nëse dëshironi të shtoni trajtim të ri.');
+        }
       }
     }
 
