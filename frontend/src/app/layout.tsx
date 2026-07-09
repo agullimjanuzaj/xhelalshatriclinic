@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { InstallPwaPrompt } from '@/components/layout/install-pwa-prompt';
+import { AppErrorBoundary } from '@/components/error-boundary';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -49,7 +50,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="sq" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <AppErrorBoundary>
+          <Providers>{children}</Providers>
+        </AppErrorBoundary>
         <InstallPwaPrompt />
       </body>
     </html>
