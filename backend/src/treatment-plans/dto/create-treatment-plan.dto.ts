@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsNotEmpty, Min, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsNotEmpty, Min, IsArray, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -72,4 +72,9 @@ export class CreateTreatmentPlanDto {
   @IsOptional()
   @IsString()
   branchId?: string;
+
+  @ApiPropertyOptional({ description: 'Nëse true, kalon kontrollin e kontrollës aktive (pas konfirmimit nga përdoruesi)' })
+  @IsOptional()
+  @IsBoolean()
+  forceCreate?: boolean;
 }

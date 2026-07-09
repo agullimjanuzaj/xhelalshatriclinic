@@ -29,7 +29,6 @@ const schema = z.object({
   patientId: z.string().uuid('Pacienti është i detyrueshëm'),
   treatmentPlanId: z.string().optional(),
   treatmentTypes: z.array(z.string()).default([]),
-  scheduledAt: z.string().optional(),
   amount: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
   recommendations: z.string().optional(),
@@ -70,10 +69,10 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { patientId: defaultPatientId || '', treatmentPlanId: NO_PLAN, treatmentTypes: [], scheduledAt: '', amount: undefined, notes: '', recommendations: '' },
+    defaultValues: { patientId: defaultPatientId || '', treatmentPlanId: NO_PLAN, treatmentTypes: [], amount: undefined, notes: '', recommendations: '' },
   });
 
-  useEffect(() => { if (open) form.reset({ patientId: defaultPatientId || '', treatmentPlanId: NO_PLAN, treatmentTypes: [], scheduledAt: '', amount: undefined, notes: '', recommendations: '' }); }, [open, defaultPatientId, form]);
+  useEffect(() => { if (open) form.reset({ patientId: defaultPatientId || '', treatmentPlanId: NO_PLAN, treatmentTypes: [], amount: undefined, notes: '', recommendations: '' }); }, [open, defaultPatientId, form]);
 
   const selectedPlanId = form.watch('treatmentPlanId');
   const selectedPlan = activePlans.find((p: any) => p.id === selectedPlanId);
@@ -96,7 +95,6 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
       return sessionsApi.create({
         patientId: d.patientId,
         treatmentPlanId: noPlan ? undefined : d.treatmentPlanId,
-        scheduledAt: d.scheduledAt ? new Date(d.scheduledAt).toISOString() : undefined,
         treatmentTypes: d.treatmentTypes,
         // Only a standalone (no-plan) session carries its own price — a
         // plan-linked session's amount is always computed server-side from
@@ -221,14 +219,6 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
               <FormItem>
                 <FormLabel>Llojet e trajtimit</FormLabel>
                 <TreatmentTypesChecklist value={watchedTypes} onChange={(v) => form.setValue('treatmentTypes', v)} />
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <FormField control={form.control} name="scheduledAt" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Data dhe ora (opsionale)</FormLabel>
-                <FormControl><Input type="datetime-local" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

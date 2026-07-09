@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -68,6 +69,9 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
   const isAdmin = role === 'ADMIN';
   const isEdit = !!plan;
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showActiveConfirm, setShowActiveConfirm] = useState(false);
+  const forceCreateRef = useRef(false);
+  const pendingDataRef = useRef<FormData | null>(null);
 
   const { data: physiosData } = useQuery({
     queryKey: ['physiotherapists-select'],
@@ -155,6 +159,14 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
   });
   const selectedPatient = (selectedPatientData as any)?.data;
 
+  const { data: activePlanCheck } = useQuery({
+    queryKey: ['treatment-plan-active', watchedPatientId],
+    queryFn: () => treatmentPlansApi.checkActivePlan(watchedPatientId),
+    enabled: !!watchedPatientId && !isEdit && open,
+    staleTime: 10_000,
+  });
+  const hasActivePlan = (activePlanCheck as any)?.data?.hasActive ?? false;
+
   // Pricing defaults come from the patient's branch's single sessionPrice —
   // only pre-fill on creation, never overwrite figures already saved on an
   // existing plan.
@@ -231,17 +243,22 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
 
   const mutation = useMutation({
     mutationFn: (d: FormData) => {
-      const payload = {
+      pendingDataRef.current = d;
+      const payload: any = {
         ...d,
         assignedPhysiotherapistId: d.assignedPhysiotherapistId || undefined,
         totalAmount: d.manualTotal ? d.totalAmount : undefined,
         manualTotal: undefined,
       };
+      if (!isEdit && forceCreateRef.current) payload.forceCreate = true;
       return isEdit ? treatmentPlansApi.update(plan.id, payload) : treatmentPlansApi.create(payload);
     },
     onSuccess: () => {
+      forceCreateRef.current = false;
+      pendingDataRef.current = null;
       queryClient.invalidateQueries({ queryKey: ['treatment-plans'] });
       queryClient.invalidateQueries({ queryKey: ['treatment-plans-physio'] });
+      queryClient.invalidateQueries({ queryKey: ['treatment-plan-active'] });
       queryClient.invalidateQueries({ queryKey: ['patient'] });
       queryClient.invalidateQueries({ queryKey: ['patients'] });
       queryClient.invalidateQueries({ queryKey: ['patients-physio'] });
@@ -255,21 +272,48 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
       form.reset();
       onClose();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: any) => {
+      forceCreateRef.current = false;
+      if (!isEdit && e?.status === 409) {
+        setShowActiveConfirm(true);
+      } else {
+        toast.error(e.message);
+      }
+    },
   });
+
+  const handleSubmit = (d: FormData) => {
+    if (!isEdit && hasActivePlan && !forceCreateRef.current) {
+      pendingDataRef.current = d;
+      setShowActiveConfirm(true);
+      return;
+    }
+    mutation.mutate(d);
+  };
+
+  const handleForceCreate = () => {
+    setShowActiveConfirm(false);
+    forceCreateRef.current = true;
+    if (pendingDataRef.current) {
+      mutation.mutate(pendingDataRef.current);
+    } else {
+      form.handleSubmit(handleSubmit)();
+    }
+  };
 
   // Manager and physiotherapist may not create or edit Kontrolla — only ADMIN.
   // Guard is here (after all hooks) to satisfy the Rules of Hooks.
   if (!isAdmin) return null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Ndrysho kontrollën' : 'Kontrollë e re'}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             {!defaultPatientId && !isEdit && (
               <FormField control={form.control} name="patientId" render={({ field }) => (
                 <FormItem>
@@ -576,5 +620,16 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
         </Form>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={showActiveConfirm}
+      onOpenChange={(open) => !open && setShowActiveConfirm(false)}
+      title="Pacienti ka kontrollë aktive"
+      description="Pacienti tashmë ka kontrollë aktive. A jeni i sigurt se doni ta shtoni edhe një?"
+      confirmLabel="Po, shto kontrollë"
+      destructive={false}
+      onConfirm={handleForceCreate}
+      isPending={mutation.isPending}
+    />
+    </>
   );
 }

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { sessionsApi } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
+import { sessionsApi, treatmentPlansApi, patientsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -19,12 +20,16 @@ import { TreatmentTypesChecklist } from '@/components/sessions/treatment-types-c
 import { GenerateRecommendationButton } from '@/components/sessions/generate-recommendation-button';
 import { GenerateSessionNoteButton } from '@/components/sessions/generate-session-note-button';
 import { Loader2 } from 'lucide-react';
+import { getTreatmentTypeLabel, extractList, extractItem, formatCurrency } from '@/lib/utils';
+
+const NO_PLAN = '__no_plan__';
 
 const schema = z.object({
+  treatmentPlanId: z.string().optional(),
+  treatmentTypes: z.array(z.string()).default([]),
+  amount: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
   recommendations: z.string().optional(),
-  treatmentTypes: z.array(z.string()).default([]),
-  scheduledAt: z.string().optional(),
   status: z.enum(['SCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW']).optional(),
 });
 
@@ -37,65 +42,71 @@ interface EditSessionDialogProps {
   isAdmin: boolean;
 }
 
-function toLocalInputValue(iso?: string | null) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessionDialogProps) {
   const queryClient = useQueryClient();
-  const [priceAmount, setPriceAmount] = useState('');
-  const [priceReason, setPriceReason] = useState('');
+  const { data: authSession } = useSession();
+  const patientId: string = session?.patientId || '';
 
-  useEffect(() => {
-    if (open) { setPriceAmount(session?.amount != null ? String(session.amount) : ''); setPriceReason(''); }
-  }, [open, session]);
+  const { data: plansData, isLoading: plansLoading } = useQuery({
+    queryKey: ['treatment-plans-for-session', patientId],
+    queryFn: () => treatmentPlansApi.getAll({ patientId, limit: 50 }),
+    enabled: !!patientId && open,
+  });
+  const plans = extractList<any>(plansData);
+  const activePlans = plans.filter((p: any) => p.completedSessions < p.totalSessions);
 
-  const invalidateFinancials = () => {
+  const { data: patientData } = useQuery({
+    queryKey: ['patient-branch-lookup-session', patientId],
+    queryFn: () => patientsApi.getOne(patientId),
+    enabled: !!patientId && open,
+  });
+  const selectedPatient = extractItem<any>(patientData);
+
+  const defaultValues = useMemo<FormData>(() => ({
+    treatmentPlanId: session?.treatmentPlanId || NO_PLAN,
+    treatmentTypes: session?.treatmentTypes || [],
+    amount: session?.amount != null ? Number(session.amount) : undefined,
+    notes: session?.notes || '',
+    recommendations: session?.recommendations || '',
+    status: session?.status || 'SCHEDULED',
+  }), [session]);
+
+  const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues });
+  useEffect(() => { if (open) form.reset(defaultValues); }, [open, defaultValues, form]);
+
+  const selectedPlanId = form.watch('treatmentPlanId');
+  const selectedPlan = activePlans.find((p: any) => p.id === selectedPlanId);
+  const watchedTypes = form.watch('treatmentTypes') || [];
+  const watchedNotes = form.watch('notes') || '';
+  const hasNoPlan = !selectedPlanId || selectedPlanId === NO_PLAN;
+
+  const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['sessions'] });
     queryClient.invalidateQueries({ queryKey: ['sessions-physio'] });
     queryClient.invalidateQueries({ queryKey: ['sessions-manager'] });
     queryClient.invalidateQueries({ queryKey: ['treatment-plans'] });
     queryClient.invalidateQueries({ queryKey: ['patients'] });
+    queryClient.invalidateQueries({ queryKey: ['patient'] });
     queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
     queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
     queryClient.invalidateQueries({ queryKey: ['report-overview'] });
   };
 
-  const priceMutation = useMutation({
-    mutationFn: () => sessionsApi.updatePrice(session.id, { amount: Number(priceAmount), reason: priceReason || undefined }),
-    onSuccess: () => { toast.success('Çmimi i seancës u përditësua!'); invalidateFinancials(); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const defaultValues = useMemo<FormData>(() => ({
-    notes: session?.notes || '',
-    recommendations: session?.recommendations || '',
-    treatmentTypes: session?.treatmentTypes || [],
-    scheduledAt: toLocalInputValue(session?.scheduledAt),
-    status: session?.status || 'SCHEDULED',
-  }), [session]);
-
-  const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues });
-
-  useEffect(() => { if (open) form.reset(defaultValues); }, [open, defaultValues, form]);
-
-  const watchedTypes = form.watch('treatmentTypes') || [];
-  const watchedNotes = form.watch('notes') || '';
-
   const mutation = useMutation({
-    mutationFn: (d: FormData) => sessionsApi.update(session.id, {
-      notes: d.notes || undefined,
-      recommendations: d.recommendations || undefined,
-      treatmentTypes: d.treatmentTypes,
-      scheduledAt: d.scheduledAt ? new Date(d.scheduledAt).toISOString() : undefined,
-      ...(isAdmin ? { status: d.status } : {}),
-    }),
+    mutationFn: (d: FormData) => {
+      const noPlan = !d.treatmentPlanId || d.treatmentPlanId === NO_PLAN;
+      return sessionsApi.update(session.id, {
+        ...(noPlan ? {} : { treatmentPlanId: d.treatmentPlanId }),
+        notes: d.notes || undefined,
+        recommendations: d.recommendations || undefined,
+        treatmentTypes: d.treatmentTypes,
+        amount: noPlan ? d.amount : undefined,
+        ...(isAdmin ? { status: d.status } : {}),
+      });
+    },
     onSuccess: () => {
       toast.success('Seanca u përditësua me sukses!');
-      invalidateFinancials();
+      invalidateAll();
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -109,30 +120,74 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
-            <FormField control={form.control} name="scheduledAt" render={({ field }) => (
+            {session?.patient && (
+              <div>
+                <p className="text-sm font-medium mb-1">Pacienti</p>
+                <p className="text-sm text-muted-foreground">{session.patient.firstName} {session.patient.lastName}</p>
+              </div>
+            )}
+
+            <FormField control={form.control} name="treatmentPlanId" render={({ field }) => (
               <FormItem>
-                <FormLabel>Data dhe ora</FormLabel>
-                <FormControl><Input type="datetime-local" {...field} /></FormControl>
+                <FormLabel>Plani i trajtimit (opsionale)</FormLabel>
+                <Select
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    const plan = activePlans.find((p: any) => p.id === v);
+                    if (plan?.treatmentTypes?.length) form.setValue('treatmentTypes', plan.treatmentTypes);
+                  }}
+                  value={field.value || NO_PLAN}
+                  disabled={plansLoading}
+                >
+                  <FormControl>
+                    <SelectTrigger><SelectValue placeholder="Zgjidh trajtimin" /></SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={NO_PLAN}>Pa plan trajtimi</SelectItem>
+                    {activePlans.map((p: any) => {
+                      const typeLabel = p.treatmentTypes?.[0] ? getTreatmentTypeLabel(p.treatmentTypes[0]) : (p.diagnosis || 'Trajtim');
+                      return (
+                        <SelectItem key={p.id} value={p.id}>
+                          {typeLabel} — {p.completedSessions}/{p.totalSessions} të kryera, {p.totalSessions - p.completedSessions} mbetur
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )} />
 
-            {isAdmin && (
-              <FormField control={form.control} name="status" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Statusi</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="SCHEDULED">Planifikuar</SelectItem>
-                      <SelectItem value="COMPLETED">Kompletuar</SelectItem>
-                      <SelectItem value="CANCELLED">Anuluar</SelectItem>
-                      <SelectItem value="NO_SHOW">Nuk u paraqit</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
+            {selectedPlan && (
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1">
+                <p>Seanca <span className="font-semibold">{selectedPlan.completedSessions + 1}</span> nga <span className="font-semibold">{selectedPlan.totalSessions}</span></p>
+                <p className="text-muted-foreground">Mbetur: {selectedPlan.totalSessions - selectedPlan.completedSessions} seanca</p>
+              </div>
+            )}
+
+            {hasNoPlan && (
+              <>
+                <p className="text-xs text-muted-foreground">Seancë pa plan trajtimi — nuk do të ndikojë në numërimin e seancave të një trajtimi.</p>
+                <FormField control={form.control} name="amount" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Çmimi i seancës (€)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number" step="0.01" min="0"
+                        {...field}
+                        value={field.value ?? ''}
+                        disabled={!isAdmin}
+                      />
+                    </FormControl>
+                    {!isAdmin && (
+                      <p className="text-xs text-muted-foreground">
+                        Çmimi i degës {selectedPatient?.branch?.name ? `(${selectedPatient.branch.name})` : ''}: {formatCurrency(field.value ?? 0)}
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </>
             )}
 
             <FormField control={form.control} name="treatmentTypes" render={() => (
@@ -172,6 +227,24 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
               </FormItem>
             )} />
 
+            {isAdmin && (
+              <FormField control={form.control} name="status" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Statusi</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="SCHEDULED">Planifikuar</SelectItem>
+                      <SelectItem value="COMPLETED">Kompletuar</SelectItem>
+                      <SelectItem value="CANCELLED">Anuluar</SelectItem>
+                      <SelectItem value="NO_SHOW">Nuk u paraqit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>Anulo</Button>
               <Button type="submit" disabled={mutation.isPending} className="gradient-teal text-white border-0">
@@ -181,31 +254,6 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
             </DialogFooter>
           </form>
         </Form>
-
-        {isAdmin && (
-          <div className="rounded-lg border bg-muted/40 p-3 space-y-2 mt-2">
-            <p className="text-sm font-medium">Ndrysho çmimin e kësaj seance</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                type="number" step="0.01" min="0" placeholder="Çmimi (€)"
-                value={priceAmount} onChange={(e) => setPriceAmount(e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={priceMutation.isPending || !priceAmount}
-                onClick={() => priceMutation.mutate()}
-              >
-                {priceMutation.isPending && <Loader2 size={14} className="mr-2 animate-spin" />}
-                Ruaj çmimin
-              </Button>
-            </div>
-            <Textarea
-              rows={2} placeholder="Arsyeja e ndryshimit (opsionale)"
-              value={priceReason} onChange={(e) => setPriceReason(e.target.value)}
-            />
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

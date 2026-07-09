@@ -54,7 +54,7 @@ api.interceptors.response.use(
       : Array.isArray(rawMessage)
       ? rawMessage.join(', ')
       : rawMessage;
-    return Promise.reject(new Error(message));
+    return Promise.reject(Object.assign(new Error(message), { status: error.response?.status }));
   },
 );
 
@@ -128,6 +128,7 @@ export const treatmentPlansApi = {
   create: (data: any) => api.post('/treatment-plans', data),
   update: (id: string, data: any) => api.put(`/treatment-plans/${id}`, data),
   delete: (id: string) => api.delete(`/treatment-plans/${id}`),
+  checkActivePlan: (patientId: string) => api.get(`/treatment-plans/patient/${patientId}/active`),
   generateNotes: (data: { diagnosis?: string; treatmentTypes?: string[]; totalSessions?: number; existingNotes?: string; complaints?: string[]; selectedDiagnoses?: string[] }) =>
     api.post('/treatment-plans/generate-notes', data),
   generateComplaintDescription: (complaints: string[], category?: string) =>

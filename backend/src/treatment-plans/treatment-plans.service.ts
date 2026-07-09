@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTreatmentPlanDto } from './dto/create-treatment-plan.dto';
 import { UpdateTreatmentPlanDto } from './dto/update-treatment-plan.dto';
@@ -155,13 +155,28 @@ export class TreatmentPlansService {
     return plan;
   }
 
+  async checkActivePlan(patientId: string): Promise<{ hasActive: boolean }> {
+    const plans = await this.prisma.treatmentPlan.findMany({
+      where: { patientId, deletedAt: null },
+      select: { completedSessions: true, totalSessions: true },
+    });
+    return { hasActive: plans.some((p) => p.completedSessions < p.totalSessions) };
+  }
+
   async create(dto: CreateTreatmentPlanDto, user: any) {
-    const { totalSessions, sessionFee, totalAmount: manualTotalAmount, assignedPhysiotherapistId, branchId: _ignoredBranchId, startDate, ...rest } = dto;
+    const { totalSessions, sessionFee, totalAmount: manualTotalAmount, assignedPhysiotherapistId, branchId: _ignoredBranchId, startDate, forceCreate, ...rest } = dto;
 
     // Only ADMIN may create a Kontrollë (TreatmentPlan) — Manager and
     // Physiotherapist are read-only on this resource by design.
     if (user.role !== Role.ADMIN) {
       throw new ForbiddenException('Vetëm administratori mund të krijojë një kontrollë');
+    }
+
+    // Block creation when the patient already has an active kontrollë unless
+    // the caller explicitly confirms (forceCreate=true after user acknowledged).
+    if (!forceCreate) {
+      const { hasActive } = await this.checkActivePlan(dto.patientId);
+      if (hasActive) throw new ConflictException('Pacienti tashmë ka kontrollë aktive');
     }
 
     // Never rely on the frontend alone to fill this in — a plan must always

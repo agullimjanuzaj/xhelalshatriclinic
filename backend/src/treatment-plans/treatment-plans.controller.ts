@@ -27,6 +27,13 @@ export class TreatmentPlansController {
     return this.service.findAll(dto, user);
   }
 
+  @Get('patient/:patientId/active')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Kontrollo nëse pacienti ka kontrollë aktive' })
+  checkActivePlan(@Param('patientId') patientId: string) {
+    return this.service.checkActivePlan(patientId);
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.MANAGER, Role.PHYSIOTHERAPIST)
   @ApiOperation({ summary: 'Shiko një plan trajtimi' })
