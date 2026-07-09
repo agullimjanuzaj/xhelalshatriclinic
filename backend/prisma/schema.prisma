@@ -440,6 +440,7 @@ model Session {
   @@index([completedByUserId])
   @@index([createdAt])
   @@index([paymentId])
+  @@index([isPaid])
   @@map("sessions")
 }
 
@@ -562,6 +563,7 @@ model AuditLog {
 
   @@index([userId])
   @@index([entity])
+  @@index([entityId])
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")

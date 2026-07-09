@@ -46,6 +46,8 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
     queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
     queryClient.invalidateQueries({ queryKey: ['report-overview'] });
     queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['patients'] });
+    queryClient.invalidateQueries({ queryKey: ['patient'] });
   };
 
   const deleteMutation = useMutation({

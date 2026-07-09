@@ -48,6 +48,8 @@ export function ManagerPaymentsView({ initialTab = 'payments' }: { initialTab?: 
     queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
     queryClient.invalidateQueries({ queryKey: ['report-overview-manager'] });
     queryClient.invalidateQueries({ queryKey: ['manager-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['patients'] });
+    queryClient.invalidateQueries({ queryKey: ['patient'] });
   };
 
   const deleteMutation = useMutation({

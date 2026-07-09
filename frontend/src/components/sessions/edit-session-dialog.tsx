@@ -90,6 +90,9 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
     queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
     queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
     queryClient.invalidateQueries({ queryKey: ['report-overview'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['manager-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['physio-stats'] });
   };
 
   const mutation = useMutation({

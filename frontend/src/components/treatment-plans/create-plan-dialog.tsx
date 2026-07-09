@@ -264,6 +264,7 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
       queryClient.invalidateQueries({ queryKey: ['patients-physio'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
+      queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       queryClient.invalidateQueries({ queryKey: ['manager-stats'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

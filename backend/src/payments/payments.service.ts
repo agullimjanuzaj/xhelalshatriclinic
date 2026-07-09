@@ -146,43 +146,59 @@ export class PaymentsService {
     for (let attempt = 0; attempt < 5; attempt++) {
       const invoiceNumber = await this.generateInvoiceNumber();
       try {
-        payment = await this.prisma.payment.create({
-          data: {
-            patientId: dto.patientId,
-            branchId,
-            treatmentPlanId: dto.treatmentPlanId,
-            invoiceNumber,
-            amount: dto.amount,
-            paymentMethod: dto.paymentMethod,
-            paymentType: dto.paymentType,
-            notes: dto.notes,
-            status: PaymentStatus.PAID,
-            paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
-            createdByUserId: user.id,
-          },
-          include: {
-            patient: { select: { id: true, firstName: true, lastName: true } },
-            branch: { select: { id: true, name: true } },
-            treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true, totalAmount: true, amountPaid: true, paymentStatus: true } },
-            createdByUser: { select: { id: true, firstName: true, lastName: true } },
-          },
+        payment = await this.prisma.$transaction(async (tx) => {
+          // Re-check inside the transaction — a concurrent request may have already paid these sessions
+          if (dto.sessionIds?.length) {
+            const fresh = await tx.session.findMany({
+              where: { id: { in: dto.sessionIds }, patientId: dto.patientId, deletedAt: null },
+              select: { id: true, isPaid: true },
+            });
+            const alreadyPaid = fresh.filter((s: any) => s.isPaid);
+            if (alreadyPaid.length) {
+              throw new BadRequestException('Disa nga seancat e zgjedhura janë tashmë të paguara');
+            }
+          }
+
+          const newPayment = await tx.payment.create({
+            data: {
+              patientId: dto.patientId,
+              branchId,
+              treatmentPlanId: dto.treatmentPlanId,
+              invoiceNumber,
+              amount: dto.amount,
+              paymentMethod: dto.paymentMethod,
+              paymentType: dto.paymentType,
+              notes: dto.notes,
+              status: PaymentStatus.PAID,
+              paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
+              createdByUserId: user.id,
+            },
+            include: {
+              patient: { select: { id: true, firstName: true, lastName: true } },
+              branch: { select: { id: true, name: true } },
+              treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true, totalAmount: true, amountPaid: true, paymentStatus: true } },
+              createdByUser: { select: { id: true, firstName: true, lastName: true } },
+            },
+          });
+
+          if (targetSessions.length) {
+            await tx.session.updateMany({
+              where: { id: { in: targetSessions.map((s) => s.id) } },
+              data: { paymentId: newPayment.id, isPaid: true },
+            });
+          }
+
+          if (dto.treatmentPlanId) {
+            await this.adjustPlanAmountPaid(dto.treatmentPlanId, new Decimal(newPayment.amount.toString()), tx);
+          }
+
+          return newPayment;
         });
         break;
       } catch (e: any) {
         if (e?.code === 'P2002' && attempt < 4) continue;
         throw e;
       }
-    }
-
-    if (targetSessions.length) {
-      await this.prisma.session.updateMany({
-        where: { id: { in: targetSessions.map((s) => s.id) } },
-        data: { paymentId: payment.id, isPaid: true },
-      });
-    }
-
-    if (dto.treatmentPlanId) {
-      await this.adjustPlanAmountPaid(dto.treatmentPlanId, new Decimal(payment.amount.toString()));
     }
 
     await this.notifyPayment(payment, user);
@@ -283,13 +299,14 @@ export class PaymentsService {
   async remove(id: string, user: any) {
     const existing = await this.findOne(id, user);
 
-    // Reverse plan financials before deleting
-    if (existing.treatmentPlanId) {
-      await this.adjustPlanAmountPaid(existing.treatmentPlanId, new Decimal(existing.amount.toString()).negated());
-    }
-    // Unlink sessions before deleting payment (session.paymentId is optional)
-    await this.prisma.session.updateMany({ where: { paymentId: id }, data: { paymentId: null, isPaid: false } });
-    await this.prisma.payment.delete({ where: { id } });
+    await this.prisma.$transaction(async (tx) => {
+      // Unlink sessions first (FK constraint), then reverse plan financials, then delete
+      await tx.session.updateMany({ where: { paymentId: id }, data: { paymentId: null, isPaid: false } });
+      if (existing.treatmentPlanId) {
+        await this.adjustPlanAmountPaid(existing.treatmentPlanId, new Decimal(existing.amount.toString()).negated(), tx);
+      }
+      await tx.payment.delete({ where: { id } });
+    });
 
     await this.prisma.auditLog.create({
       data: {
@@ -334,15 +351,16 @@ export class PaymentsService {
   // payment, negative when reversing one on edit/void) and recomputes its
   // automatic payment status. Clamped at 0 so a data-entry correction can
   // never push paid-amount negative.
-  private async adjustPlanAmountPaid(planId: string, delta: Decimal) {
-    const plan = await this.prisma.treatmentPlan.findUnique({ where: { id: planId } });
+  private async adjustPlanAmountPaid(planId: string, delta: Decimal, tx?: any) {
+    const client = tx ?? this.prisma;
+    const plan = await client.treatmentPlan.findUnique({ where: { id: planId } });
     if (!plan) return;
 
     let newAmountPaid = new Decimal(plan.amountPaid.toString()).plus(delta);
     if (newAmountPaid.isNegative()) newAmountPaid = new Decimal(0);
     const { paymentStatus } = computePlanFinancials({ ...plan, amountPaid: newAmountPaid });
 
-    await this.prisma.treatmentPlan.update({
+    await client.treatmentPlan.update({
       where: { id: planId },
       data: { amountPaid: newAmountPaid, paymentStatus },
     });

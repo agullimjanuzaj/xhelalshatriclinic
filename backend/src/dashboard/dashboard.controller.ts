@@ -25,8 +25,11 @@ export class DashboardController {
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Statistikat e Menaxherit' })
   getManagerStats(@CurrentUser() user: any, @Query('branchId') branchId?: string) {
-    const targetBranchId = branchId || user.managedBranches?.[0]?.id || user.userBranches?.[0]?.branchId;
-    return this.dashboardService.getManagerStats(user.id, targetBranchId);
+    if (user.role === Role.MANAGER) {
+      const userBranchIds: string[] = user.userBranches?.map((ub: any) => ub.branchId) || [];
+      branchId = branchId && userBranchIds.includes(branchId) ? branchId : userBranchIds[0];
+    }
+    return this.dashboardService.getManagerStats(user.id, branchId);
   }
 
   @Get('physiotherapist')
@@ -39,7 +42,11 @@ export class DashboardController {
   @Get('revenue-chart')
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Grafiku i të ardhurave' })
-  getRevenueChart(@Query('branchId') branchId?: string, @Query('year') year?: number) {
+  getRevenueChart(@CurrentUser() user: any, @Query('branchId') branchId?: string, @Query('year') year?: number) {
+    if (user.role === Role.MANAGER) {
+      const userBranchIds: string[] = user.userBranches?.map((ub: any) => ub.branchId) || [];
+      branchId = branchId && userBranchIds.includes(branchId) ? branchId : userBranchIds[0];
+    }
     return this.dashboardService.getRevenueChart(branchId, year);
   }
 }

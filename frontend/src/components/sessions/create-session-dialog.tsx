@@ -117,6 +117,8 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
       queryClient.invalidateQueries({ queryKey: ['physio-stats'] });
       queryClient.invalidateQueries({ queryKey: ['notifications-unread'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
+      queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
       form.reset();
       onClose();
     },
