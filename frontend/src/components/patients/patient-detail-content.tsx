@@ -28,7 +28,7 @@ import {
 } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Pencil, Trash2, Printer, Share2, Download,
-  Building2, Phone, CheckCircle2,
+  Building2, Phone, CheckCircle2, ExternalLink,
 } from 'lucide-react';
 import { ROUTES } from '@/lib/routes';
 import { toast } from 'sonner';
@@ -354,6 +354,11 @@ export function PatientDetailContent({ id }: { id: string }) {
                       <Plus size={12} />Shto pagesë
                     </Button>
                   )}
+                  <Link href={ROUTES.treatmentDetail(p.id)}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Shiko detajet">
+                      <ExternalLink size={13} />
+                    </Button>
+                  </Link>
                   {canManagePatient && (
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditPlan(p)} title="Ndrysho">
                       <Pencil size={13} />

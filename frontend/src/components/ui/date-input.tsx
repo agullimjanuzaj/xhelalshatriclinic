@@ -107,8 +107,11 @@ export function DateInput({ value, onChange, placeholder = 'dd/mm/yyyy', disable
       return;
     }
 
-    // Block non-digit, non-slash keys
-    if (!/^\d$/.test(e.key)) {
+    // Block non-digit keys only when the key is a known printable character.
+    // Mobile keyboards fire e.key = 'Unidentified' / 'Process' (length > 1);
+    // skipping preventDefault there lets handleChange strip non-digits instead,
+    // which avoids the "first character swallowed" bug on Android/iOS.
+    if (e.key.length === 1 && !/^\d$/.test(e.key)) {
       e.preventDefault();
     }
   }

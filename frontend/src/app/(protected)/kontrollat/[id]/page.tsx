@@ -201,7 +201,7 @@ export default function TreatmentPlanDetailPage() {
 
                 {/* Suggested conditions */}
                 {plan.selectedDiagnoses?.length > 0 && (
-                  <SectionCard title="Gjendja e sugjeruar" icon={<Stethoscope size={13} />}>
+                  <SectionCard title="Patologjia e sugjeruar" icon={<Stethoscope size={13} />}>
                     <div className="flex flex-wrap gap-1.5">
                       {plan.selectedDiagnoses.map((d: string) => (
                         <Badge

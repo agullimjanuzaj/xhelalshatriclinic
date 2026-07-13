@@ -94,7 +94,7 @@ function SymptomSuggestionTool() {
       </Card>
       {!loading && results !== null && (
         <Card className="border-teal-200 dark:border-teal-800">
-          <CardHeader><CardTitle className="text-base text-teal-700 dark:text-teal-300">Gjendjet e sugjeruara</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base text-teal-700 dark:text-teal-300">Patologjitë e sugjeruara</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {results.length > 0 ? (
               <div className="space-y-2">
@@ -108,7 +108,7 @@ function SymptomSuggestionTool() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Nuk u gjet asnjë gjendje e sugjeruar</p>
+              <p className="text-sm text-muted-foreground">Nuk u gjet asnjë patologji e sugjeruar</p>
             )}
             <div className="flex flex-wrap gap-1 pt-2 border-t border-border">
               <span className="text-xs text-muted-foreground">Simptomat:</span>
@@ -150,13 +150,13 @@ function SuggestedConditionsAdmin() {
 
   const createMutation = useMutation({
     mutationFn: (d: ConditionFormState) => suggestedConditionsApi.create({ name: d.name.trim(), description: d.description.trim() || undefined }),
-    onSuccess: () => { invalidate(); setDialogOpen(false); toast.success('Gjendja u shtua!'); },
+    onSuccess: () => { invalidate(); setDialogOpen(false); toast.success('Patologjia u shtua!'); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const updateMutation = useMutation({
     mutationFn: (d: ConditionFormState) => suggestedConditionsApi.update(d.id!, { name: d.name.trim(), description: d.description.trim() || undefined }),
-    onSuccess: () => { invalidate(); setDialogOpen(false); toast.success('Gjendja u përditësua!'); },
+    onSuccess: () => { invalidate(); setDialogOpen(false); toast.success('Patologjia u përditësua!'); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -168,7 +168,7 @@ function SuggestedConditionsAdmin() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => suggestedConditionsApi.delete(id),
-    onSuccess: () => { invalidate(); toast.success('Gjendja u fshi!'); },
+    onSuccess: () => { invalidate(); toast.success('Patologjia u fshi!'); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -185,9 +185,9 @@ function SuggestedConditionsAdmin() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Menaxho gjendjet/diagnozat që mund të sugjerohen</p>
+        <p className="text-sm text-muted-foreground">Menaxho patologjitë/diagnozat që mund të sugjerohen</p>
         <Button onClick={openCreate} size="sm" className="gradient-teal text-white border-0 gap-2">
-          <Plus size={14} /> Shto gjendje
+          <Plus size={14} /> Shto patologji
         </Button>
       </div>
 
@@ -195,7 +195,7 @@ function SuggestedConditionsAdmin() {
         <div className="text-sm text-muted-foreground py-6 text-center">Duke ngarkuar...</div>
       ) : conditions.length === 0 ? (
         <div className="text-sm text-muted-foreground py-8 text-center border rounded-xl">
-          Nuk ka gjendje. Shto gjendjen e parë.
+          Nuk ka patologji. Shto patologjinë e parë.
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -217,11 +217,11 @@ function SuggestedConditionsAdmin() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{formState.id ? 'Ndrysho gjendjen' : 'Shto gjendje të re'}</DialogTitle>
+            <DialogTitle>{formState.id ? 'Ndrysho patologjinë' : 'Shto patologji të re'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium">Emri i gjendjes *</label>
+              <label className="text-sm font-medium">Emri i patologjisë *</label>
               <Input
                 value={formState.name}
                 onChange={(e) => setFormState((s) => ({ ...s, name: e.target.value }))}
@@ -354,7 +354,7 @@ function ComplaintsAdmin() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Menaxho ankesat kryesore dhe lidhjen e tyre me gjendjet e sugjeruara</p>
+        <p className="text-sm text-muted-foreground">Menaxho ankesat kryesore dhe lidhjen e tyre me patologjitë e sugjeruara</p>
         <Button onClick={openCreate} size="sm" className="gradient-teal text-white border-0 gap-2">
           <Plus size={14} /> Shto ankesë
         </Button>
@@ -450,9 +450,9 @@ function ComplaintsAdmin() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Gjendjet e sugjeruara për këtë ankesë</label>
+              <label className="text-sm font-medium">Patologjitë e sugjeruara për këtë ankesë</label>
               {conditionOptions.length === 0 ? (
-                <p className="text-xs text-muted-foreground mt-1">Nuk ka gjendje të krijuara ende — shtoji te seksioni "Gjendjet e sugjeruara" më sipër.</p>
+                <p className="text-xs text-muted-foreground mt-1">Nuk ka patologji të krijuara ende — shtoji te seksioni "Patologjitë e sugjeruara" më sipër.</p>
               ) : (
                 <div className="grid grid-cols-2 gap-2 border rounded-lg p-3 mt-1 max-h-44 overflow-y-auto">
                   {conditionOptions.map((sc) => (
@@ -510,7 +510,7 @@ export default function SuggestionsPage() {
 
       {isAdmin && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-base">Gjendjet e sugjeruara</h2>
+          <h2 className="font-semibold text-base">Patologjitë e sugjeruara</h2>
           <SuggestedConditionsAdmin />
         </section>
       )}

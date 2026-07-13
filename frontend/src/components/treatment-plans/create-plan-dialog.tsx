@@ -493,9 +493,9 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
             {!suggestionsLoading && suggestedConditions !== null && (
               <FormField control={form.control} name="selectedDiagnoses" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Gjendjet e sugjeruara</FormLabel>
+                  <FormLabel>Patologjitë e sugjeruara</FormLabel>
                   {suggestedConditions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">Nuk u gjet asnjë gjendje e sugjeruar</p>
+                    <p className="text-sm text-muted-foreground py-2">Nuk u gjet asnjë patologji e sugjeruar</p>
                   ) : (
                     <div className="grid grid-cols-1 gap-1.5 border rounded-lg p-3 bg-teal-50/50 max-h-40 overflow-y-auto">
                       {suggestedConditions.map((d) => (
