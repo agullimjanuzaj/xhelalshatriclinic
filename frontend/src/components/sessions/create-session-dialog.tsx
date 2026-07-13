@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -50,6 +50,10 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
   const isAdmin = role === 'ADMIN';
   const [patientId, setPatientId] = useState(defaultPatientId || '');
 
+  // True once the user has manually changed the plan select — prevents the
+  // async auto-select effect from overwriting their explicit choice.
+  const userChangedPlanRef = useRef(false);
+
   const { data: plansData, isLoading: plansLoading } = useQuery({
     queryKey: ['treatment-plans-for-session', patientId],
     queryFn: () => treatmentPlansApi.getAll({ patientId, limit: 50 }),
@@ -72,7 +76,36 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
     defaultValues: { patientId: defaultPatientId || '', treatmentPlanId: NO_PLAN, treatmentTypes: [], amount: undefined, notes: '', recommendations: '' },
   });
 
-  useEffect(() => { if (open) form.reset({ patientId: defaultPatientId || '', treatmentPlanId: NO_PLAN, treatmentTypes: [], amount: undefined, notes: '', recommendations: '' }); }, [open, defaultPatientId, form]);
+  // Reset form on open; clear the manual-change flag so auto-select can run.
+  useEffect(() => {
+    if (open) {
+      userChangedPlanRef.current = false;
+      setPatientId(defaultPatientId || '');
+      form.reset({ patientId: defaultPatientId || '', treatmentPlanId: NO_PLAN, treatmentTypes: [], amount: undefined, notes: '', recommendations: '' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultPatientId]);
+
+  // Auto-select the newest active plan when the dialog opens, the patient
+  // changes, or plans finish loading asynchronously. Skipped once the user
+  // has manually picked a plan (userChangedPlanRef stays true until next
+  // patient change or re-open).
+  useEffect(() => {
+    if (!open) return;
+    if (!patientId) return;
+    if (plansLoading) return;
+    if (userChangedPlanRef.current) return;
+
+    if (activePlans.length > 0) {
+      const latest = [...activePlans].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )[0];
+      form.setValue('treatmentPlanId', latest.id);
+      if (latest.treatmentTypes?.length) form.setValue('treatmentTypes', latest.treatmentTypes);
+    }
+    // If no active plans, NO_PLAN stays (already set by the reset above).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, patientId, plansLoading]);
 
   const selectedPlanId = form.watch('treatmentPlanId');
   const selectedPlan = activePlans.find((p: any) => p.id === selectedPlanId);
@@ -141,7 +174,13 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
                   <FormControl>
                     <PatientCombobox
                       value={field.value}
-                      onChange={(v) => { field.onChange(v); setPatientId(v); form.setValue('treatmentPlanId', NO_PLAN); }}
+                      onChange={(v) => {
+                        field.onChange(v);
+                        setPatientId(v);
+                        form.setValue('treatmentPlanId', NO_PLAN);
+                        // Reset flag so auto-select runs again for the new patient.
+                        userChangedPlanRef.current = false;
+                      }}
                       placeholder="Zgjidh pacientin"
                       activeInClinicOnly={isPhysio}
                     />
@@ -154,9 +193,11 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
             {patientId && (
               <FormField control={form.control} name="treatmentPlanId" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Plani i trajtimit (opsionale)</FormLabel>
+                  <FormLabel>Plani i trajtimit</FormLabel>
                   <Select
                     onValueChange={(v) => {
+                      // Mark as manual so auto-select won't override this choice.
+                      userChangedPlanRef.current = true;
                       field.onChange(v);
                       // Picking a plan pre-checks its own treatment types —
                       // the physio can still add/remove before saving.
