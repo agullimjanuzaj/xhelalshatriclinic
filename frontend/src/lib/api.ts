@@ -45,6 +45,24 @@ api.interceptors.response.use(
     }
     // 403 (forbidden) is a permissions outcome, not an auth failure — never
     // sign the user out for it, just surface the message below.
+
+    // No response at all → network/offline error
+    if (!error.response) {
+      const isTimeout = error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout');
+      const msg = isTimeout
+        ? 'Kërkesa skadoi — serveri nuk u përgjigj në kohë. Kontrolloni lidhjen dhe provoni sërish.'
+        : 'Nuk ka lidhje me serverin. Kontrolloni internetin dhe provoni sërish.';
+      return Promise.reject(Object.assign(new Error(msg), { status: 0 }));
+    }
+
+    const status = error.response.status;
+    if (status === 502 || status === 503 || status === 504) {
+      return Promise.reject(Object.assign(
+        new Error('Serveri është përkohësisht i padisponueshëm. Provoni sërish pas pak sekondash.'),
+        { status },
+      ));
+    }
+
     const data = error.response?.data;
     // Show detailed validation errors when backend returns errors array
     const detailedErrors: string[] | null =
@@ -55,7 +73,7 @@ api.interceptors.response.use(
       : Array.isArray(rawMessage)
       ? rawMessage.join(', ')
       : rawMessage;
-    return Promise.reject(Object.assign(new Error(message), { status: error.response?.status }));
+    return Promise.reject(Object.assign(new Error(message), { status }));
   },
 );
 

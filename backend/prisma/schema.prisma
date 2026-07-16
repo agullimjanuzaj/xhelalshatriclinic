@@ -488,6 +488,7 @@ model Payment {
   branchId        String        @map("branch_id")
   treatmentPlanId String?       @map("treatment_plan_id")
   invoiceNumber   String        @unique @map("invoice_number")
+  idempotencyKey  String?       @unique @map("idempotency_key")
   amount          Decimal       @db.Decimal(10, 2)
   paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
   paymentType     PaymentType?  @map("payment_type")

@@ -96,6 +96,10 @@ export function PatientDetailContent({ id }: { id: string }) {
     queryClient.invalidateQueries({ queryKey: ['payments'] });
     queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
     queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
+    queryClient.invalidateQueries({ queryKey: ['plan-financials'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['manager-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['report-overview'] });
   };
 
   const deletePlanMutation = useMutation({

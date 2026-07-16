@@ -340,6 +340,21 @@ export class SessionsService {
       where: { id: dto.treatmentPlanId },
       data: { completedSessions: { increment: 1 } },
     });
+
+    // Auto-mark the session as paid if the plan already has enough prepaid
+    // credit to cover it. completedSessions hasn't been re-read after the
+    // increment above, so add 1 to get the new total.
+    const newCompletedCount = new Decimal(treatmentPlan.completedSessions + 1);
+    const sessionFeeDecimal = new Decimal(treatmentPlan.sessionFee.toString());
+    const amountPaidDecimal = new Decimal(treatmentPlan.amountPaid.toString());
+    if (amountPaidDecimal.gte(sessionFeeDecimal.mul(newCompletedCount))) {
+      await this.prisma.session.update({
+        where: { id: session.id },
+        data: { isPaid: true },
+      });
+      (session as any).isPaid = true;
+    }
+
     await recalculatePatientStatus(this.prisma, dto.patientId);
 
     await this.notifySessionCompleted(session, session);

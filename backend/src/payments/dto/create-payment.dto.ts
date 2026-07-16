@@ -50,4 +50,9 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsDateString()
   paidAt?: string;
+
+  @ApiPropertyOptional({ description: 'UUID unik i gjeneruar nga frontend — backend kthen pagesën ekzistuese nëse e njëjta çelës dërgohet sërisht (mbrojtje nga dyfishimi)' })
+  @IsOptional()
+  @IsString()
+  idempotencyKey?: string;
 }

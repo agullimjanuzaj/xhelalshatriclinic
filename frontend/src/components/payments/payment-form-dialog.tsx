@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -47,6 +47,8 @@ interface PaymentFormDialogProps {
 export function PaymentFormDialog({ open, onClose, onSuccess, defaultPatientId, defaultPlanId, defaultSessionId, payment }: PaymentFormDialogProps) {
   const isEdit = !!payment;
   const [patientId, setPatientId] = useState(payment?.patientId || defaultPatientId || '');
+  // Generated once per create dialog open; prevents duplicate payments on double-submit or retry.
+  const idempotencyKeyRef = useRef<string | undefined>(undefined);
 
   const { data: plansData } = useQuery({
     queryKey: ['treatment-plans-for-payment', patientId],
@@ -67,7 +69,14 @@ export function PaymentFormDialog({ open, onClose, onSuccess, defaultPatientId, 
 
   const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues });
 
-  useEffect(() => { if (open) { form.reset(defaultValues); setPatientId(payment?.patientId || defaultPatientId || ''); } }, [open, defaultValues, form, payment, defaultPatientId]);
+  useEffect(() => {
+    if (open) {
+      form.reset(defaultValues);
+      setPatientId(payment?.patientId || defaultPatientId || '');
+      // Fresh key for each new-payment dialog open; cleared for edits.
+      idempotencyKeyRef.current = isEdit ? undefined : crypto.randomUUID();
+    }
+  }, [open, defaultValues, form, payment, defaultPatientId, isEdit]);
 
   const treatmentPlanId = form.watch('treatmentPlanId');
   const selectedPlanId = treatmentPlanId && treatmentPlanId !== NO_PLAN ? treatmentPlanId : undefined;
@@ -126,6 +135,7 @@ export function PaymentFormDialog({ open, onClose, onSuccess, defaultPatientId, 
         paymentMethod: data.paymentMethod,
         paymentType: data.paymentType,
         notes: data.notes || undefined,
+        idempotencyKey: isEdit ? undefined : idempotencyKeyRef.current,
       };
       return isEdit ? paymentsApi.update(payment.id, payload) : paymentsApi.create(payload);
     },

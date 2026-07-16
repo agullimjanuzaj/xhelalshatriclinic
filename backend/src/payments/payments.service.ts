@@ -85,6 +85,23 @@ export class PaymentsService {
   }
 
   async create(dto: CreatePaymentDto, user: any) {
+    // Fast-path idempotency: if the frontend retries with the same key, return
+    // the already-committed payment instead of creating a duplicate.
+    if (dto.idempotencyKey) {
+      const existing = await this.prisma.payment.findUnique({
+        where: { idempotencyKey: dto.idempotencyKey },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true } },
+          branch: { select: { id: true, name: true } },
+          createdByUser: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+      if (existing) {
+        console.warn(`[PaymentsService] Idempotent duplicate payment key=${dto.idempotencyKey} — returning existing payment ${existing.id}`);
+        return existing;
+      }
+    }
+
     const patient = await this.prisma.patient.findFirst({
       where: { id: dto.patientId, deletedAt: null },
     });
@@ -165,6 +182,7 @@ export class PaymentsService {
               branchId,
               treatmentPlanId: dto.treatmentPlanId,
               invoiceNumber,
+              idempotencyKey: dto.idempotencyKey,
               amount: dto.amount,
               paymentMethod: dto.paymentMethod,
               paymentType: dto.paymentType,
