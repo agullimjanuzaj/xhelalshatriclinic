@@ -188,6 +188,7 @@ export const paymentsApi = {
   create: (data: any) => api.post('/payments', data),
   update: (id: string, data: any) => api.put(`/payments/${id}`, data),
   delete: (id: string) => api.delete(`/payments/${id}`),
+  getUnpaidPlans: (patientId: string) => api.get(`/payments/patient/${patientId}/unpaid-plans`),
 };
 
 export const notificationsApi = {

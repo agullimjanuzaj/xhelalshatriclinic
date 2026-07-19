@@ -215,22 +215,51 @@ export class TreatmentPlansService {
       ? new Decimal(manualTotalAmount)
       : new Decimal(resolvedSessionFee).times(totalSessions);
 
-    const plan = await this.prisma.treatmentPlan.create({
-      data: {
-        ...rest,
-        totalSessions,
-        sessionFee: resolvedSessionFee,
-        totalAmount,
-        startDate: resolvedStartDate,
-        branchId,
-        assignedPhysiotherapistId: finalAssignedPhysiotherapistId,
-        createdByUserId: user.id,
-      },
-      include: {
-        patient: { include: { branch: { select: { id: true, name: true } } } },
-        branch: { select: { id: true, name: true } },
-        assignedPhysiotherapist: { select: { id: true, firstName: true, lastName: true } },
-      },
+    // Create the plan + atomically apply any existing patient credit (balance)
+    const plan = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.treatmentPlan.create({
+        data: {
+          ...rest,
+          totalSessions,
+          sessionFee: resolvedSessionFee,
+          totalAmount,
+          startDate: resolvedStartDate,
+          branchId,
+          assignedPhysiotherapistId: finalAssignedPhysiotherapistId,
+          createdByUserId: user.id,
+        },
+        include: {
+          patient: { include: { branch: { select: { id: true, name: true } } } },
+          branch: { select: { id: true, name: true } },
+          assignedPhysiotherapist: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+
+      // Auto-apply patient credit to this new plan (FIFO: oldest debt first)
+      const freshPatient = await tx.patient.findUnique({
+        where: { id: dto.patientId },
+        select: { balance: true },
+      });
+      if (freshPatient) {
+        const available = new Decimal(freshPatient.balance.toString());
+        if (available.gt(new Decimal('0.005'))) {
+          const planTotal = new Decimal(totalAmount.toString());
+          const toApply = available.lte(planTotal) ? available : planTotal;
+          const { paymentStatus } = computePlanFinancials({ ...created, amountPaid: toApply });
+          await tx.treatmentPlan.update({
+            where: { id: created.id },
+            data: { amountPaid: toApply, paymentStatus },
+          });
+          await tx.patient.update({
+            where: { id: dto.patientId },
+            data: { balance: { decrement: toApply } },
+          });
+          (created as any).amountPaid = toApply;
+          (created as any).paymentStatus = paymentStatus;
+        }
+      }
+
+      return created;
     });
 
     // A brand-new plan is never already complete, so this always lands on

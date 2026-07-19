@@ -1,7 +1,20 @@
-import { IsNumber, IsOptional, IsEnum, IsString, IsNotEmpty, Min, IsDateString, IsArray } from 'class-validator';
+import { IsNumber, IsOptional, IsEnum, IsString, IsNotEmpty, Min, IsDateString, IsArray, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, PaymentType } from '@prisma/client';
 import { Type } from 'class-transformer';
+
+export class PaymentAllocationDto {
+  @ApiProperty({ description: 'ID e planit të trajtimit' })
+  @IsString()
+  @IsNotEmpty()
+  treatmentPlanId: string;
+
+  @ApiProperty({ example: 25, description: 'Shuma e alokuar për këtë plan' })
+  @IsNumber()
+  @Min(0.01)
+  @Type(() => Number)
+  amount: number;
+}
 
 export class CreatePaymentDto {
   @ApiProperty()
@@ -19,11 +32,21 @@ export class CreatePaymentDto {
   @IsString()
   treatmentPlanId?: string;
 
-  @ApiPropertyOptional({ description: 'Pagesë për një ose disa seanca specifike', type: [String] })
+  @ApiPropertyOptional({ description: 'Pagesë për seanca specifike standalone', type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   sessionIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Alokimet FIFO — çdo plan me shumën e tij. Nëse mungojnë, backend llogarit FIFO automatikisht.',
+    type: [PaymentAllocationDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PaymentAllocationDto)
+  allocations?: PaymentAllocationDto[];
 
   @ApiProperty({ example: 35 })
   @IsNumber()

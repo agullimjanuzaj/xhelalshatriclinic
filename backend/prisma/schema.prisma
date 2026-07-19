@@ -211,6 +211,10 @@ model Patient {
   updatedAt               DateTime       @updatedAt @map("updated_at")
   deletedAt               DateTime?      @map("deleted_at")
 
+  // Unallocated credit — increases when a payment has surplus after FIFO
+  // allocation; decreases when a new treatment plan absorbs the credit.
+  balance Decimal @default(0) @map("balance") @db.Decimal(10, 2)
+
   // Relations
   branch         Branch          @relation(fields: [branchId], references: [id])
   treatmentPlans TreatmentPlan[]
@@ -370,13 +374,14 @@ model TreatmentPlan {
   deletedAt                 DateTime?     @map("deleted_at")
 
   // Relations
-  patient                 Patient     @relation(fields: [patientId], references: [id])
-  branch                  Branch?     @relation(fields: [branchId], references: [id])
+  patient                 Patient              @relation(fields: [patientId], references: [id])
+  branch                  Branch?              @relation(fields: [branchId], references: [id])
   sessions                Session[]
   treatments              Treatment[]
   payments                Payment[]
-  createdByUser           User?       @relation("PlanCreatedByUser", fields: [createdByUserId], references: [id])
-  assignedPhysiotherapist User?       @relation("PlanAssignedPhysiotherapist", fields: [assignedPhysiotherapistId], references: [id])
+  paymentAllocations      PaymentAllocation[]
+  createdByUser           User?                @relation("PlanCreatedByUser", fields: [createdByUserId], references: [id])
+  assignedPhysiotherapist User?                @relation("PlanAssignedPhysiotherapist", fields: [assignedPhysiotherapistId], references: [id])
 
   @@index([patientId])
   @@index([branchId])
@@ -501,11 +506,12 @@ model Payment {
   deletedAt       DateTime?     @map("deleted_at")
 
   // Relations
-  patient       Patient        @relation(fields: [patientId], references: [id])
-  branch        Branch         @relation(fields: [branchId], references: [id])
-  treatmentPlan TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id])
-  createdByUser User?          @relation(fields: [createdByUserId], references: [id])
+  patient       Patient             @relation(fields: [patientId], references: [id])
+  branch        Branch              @relation(fields: [branchId], references: [id])
+  treatmentPlan TreatmentPlan?      @relation(fields: [treatmentPlanId], references: [id])
+  createdByUser User?               @relation(fields: [createdByUserId], references: [id])
   sessions      Session[]
+  allocations   PaymentAllocation[]
 
   @@index([patientId])
   @@index([branchId])
@@ -515,6 +521,30 @@ model Payment {
   @@index([createdAt])
   @@index([deletedAt])
   @@map("payments")
+}
+
+// ==========================================
+// PAYMENT ALLOCATION (FIFO multi-plan)
+// ==========================================
+
+// Each Payment can be split across multiple treatment plans via FIFO.
+// One row per (payment, plan) pair — the amount is the slice allocated to
+// that plan. The sum of all allocations for a payment <= payment.amount;
+// the remainder stays as Patient.balance (unallocated credit).
+model PaymentAllocation {
+  id              String   @id @default(uuid())
+  paymentId       String   @map("payment_id")
+  treatmentPlanId String   @map("treatment_plan_id")
+  amount          Decimal  @db.Decimal(10, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  treatmentPlan TreatmentPlan @relation(fields: [treatmentPlanId], references: [id])
+
+  @@unique([paymentId, treatmentPlanId])
+  @@index([paymentId])
+  @@index([treatmentPlanId])
+  @@map("payment_allocations")
 }
 
 // ==========================================
