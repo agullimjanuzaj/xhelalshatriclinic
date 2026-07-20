@@ -135,7 +135,7 @@ export class PaymentsService {
     }
 
     const sessions = await this.prisma.session.findMany({
-      where: { patientId, deletedAt: null, status: 'COMPLETED', isPaid: false },
+      where: { patientId, deletedAt: null, status: 'COMPLETED' },
       orderBy: { createdAt: 'asc' },
       include: {
         paymentAllocations: { select: { amount: true } },
@@ -456,17 +456,22 @@ export class PaymentsService {
             // (e.g. the session the user clicked on goes first); then FIFO the rest.
             // Any amount remaining after all sessions → patient.balance as credit.
 
-            const outstandingSessions = await tx.session.findMany({
+            // Load ALL completed sessions and filter by actual remaining debt.
+            // Do NOT rely on isPaid flag — it can be stale if a payment was deleted
+            // without allocation records (old system). Allocation-based calculation is authoritative.
+            const allCompletedSessions = await tx.session.findMany({
               where: {
                 patientId: dto.patientId,
                 deletedAt: null,
                 status: 'COMPLETED',
-                isPaid: false,
-                // No treatmentPlanId filter — include both standalone and plan sessions.
-                // A general patient payment settles ALL outstanding debt regardless of plan.
               },
               orderBy: { createdAt: 'asc' },
               include: { paymentAllocations: { select: { amount: true } } },
+            });
+            const outstandingSessions = allCompletedSessions.filter((s) => {
+              const price = Number(s.amount?.toString() ?? '0');
+              const paid = s.paymentAllocations.reduce((sum, a) => sum + Number(a.amount.toString()), 0);
+              return price - paid > 0.005;
             });
 
             const specifiedIds: string[] = (dto.sessionAllocations || []).map((a: any) => a.sessionId);
@@ -619,6 +624,23 @@ export class PaymentsService {
         });
       }
 
+      // For plan-less payments with no allocation records (created before the FIFO system),
+      // deleting the payment must also reset isPaid on sessions that have no allocations
+      // covering them — otherwise they stay isPaid=true permanently with 0 allocations.
+      if (allocations.length === 0 && !existing.treatmentPlanId) {
+        const orphanedSessions = await tx.session.findMany({
+          where: { patientId: existing.patientId, deletedAt: null, status: 'COMPLETED', isPaid: true, treatmentPlanId: null },
+          include: { paymentAllocations: { select: { amount: true } } },
+        });
+        for (const sess of orphanedSessions) {
+          const price = Number(sess.amount?.toString() ?? '0');
+          const allocated = sess.paymentAllocations.reduce((s, a) => s + Number(a.amount.toString()), 0);
+          if (price - allocated > 0.005) {
+            await tx.session.update({ where: { id: sess.id }, data: { isPaid: false } });
+          }
+        }
+      }
+
       // Reverse plan.amountPaid or patient balance
       if (existing.treatmentPlanId) {
         await this.adjustPlanAmountPaid(
@@ -756,7 +778,9 @@ export class PaymentsService {
       })
       .filter((d) => d.currentDebt > 0.005);
 
-    const sessionWhere: any = { deletedAt: null, treatmentPlanId: null, status: 'COMPLETED', isPaid: false };
+    // No isPaid filter — use allocation-based debt calculation in sessionDebts map below.
+    // isPaid can be stale (e.g. payment deleted without resetting the flag for old-system records).
+    const sessionWhere: any = { deletedAt: null, treatmentPlanId: null, status: 'COMPLETED' };
     if (branchId) sessionWhere.patient = { branchId };
 
     const standaloneSessions = await this.prisma.session.findMany({

@@ -173,14 +173,15 @@ async function main() {
     const unallocatedCredit = Math.max(0, Math.round((Number(p.amount) - paymentAllocated) * 100) / 100);
     if (unallocatedCredit < 0.005) continue; // fully allocated — nothing to fix
 
-    // Find patient's outstanding sessions with remaining debt
-    const outstandingSessions = await prisma.session.findMany({
-      where: { patientId: p.patientId, deletedAt: null, status: 'COMPLETED', isPaid: false },
+    // Find patient's sessions with actual remaining debt — allocation-based, not isPaid flag.
+    // isPaid may be stale for sessions paid in the old system whose payment was later deleted.
+    const allPatientSessions = await prisma.session.findMany({
+      where: { patientId: p.patientId, deletedAt: null, status: 'COMPLETED' },
       orderBy: { createdAt: 'asc' },
       include: { paymentAllocations: { select: { amount: true, paymentId: true } } },
     });
 
-    const sessionsWithDebt = outstandingSessions.map((s) => {
+    const sessionsWithDebt = allPatientSessions.map((s) => {
       const paidAmt = s.paymentAllocations.reduce((a, b) => a + Number(b.amount), 0);
       return { ...s, remainingDebt: Math.max(0, Number(s.amount || 0) - paidAmt) };
     }).filter((s) => s.remainingDebt > 0.005);
@@ -207,7 +208,12 @@ async function main() {
     if (!patient) continue;
 
     const balanceBefore = Number(patient.balance);
-    const balanceAfter = Math.max(0, Math.round((balanceBefore - totalNewAlloc) * 100) / 100);
+    // Only reduce balance if it's >= the amount we're allocating.
+    // If balance < totalNewAlloc the balance was set by the old system (historical data) —
+    // the credit was already "consumed" by the direct isPaid=true, so deducting would erase it.
+    const balanceAfter = balanceBefore >= totalNewAlloc - 0.01
+      ? Math.max(0, Math.round((balanceBefore - totalNewAlloc) * 100) / 100)
+      : balanceBefore; // historical data — leave balance untouched
     const debtAfter = Math.round((sessionsWithDebt.reduce((s, x) => s + x.remainingDebt, 0) - totalNewAlloc) * 100) / 100;
 
     issueCount++;
