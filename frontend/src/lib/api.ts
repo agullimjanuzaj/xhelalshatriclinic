@@ -186,6 +186,7 @@ export const paymentsApi = {
     api.get('/payments/debts', { params: { branchId, page, limit } }),
   getPlanFinancials: (planId: string) => api.get(`/payments/treatment-plan/${planId}/financials`),
   getPlanSessions: (planId: string) => api.get(`/payments/plan/${planId}/sessions`),
+  getSessionInfo: (sessionId: string) => api.get(`/payments/session/${sessionId}/info`),
   create: (data: any) => api.post('/payments', data),
   update: (id: string, data: any) => api.put(`/payments/${id}`, data),
   delete: (id: string) => api.delete(`/payments/${id}`),

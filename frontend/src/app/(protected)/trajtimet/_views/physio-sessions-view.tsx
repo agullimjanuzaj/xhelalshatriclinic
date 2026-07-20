@@ -132,7 +132,7 @@ export function PhysioSessionsView() {
     {
       header: 'Paguar',
       accessor: (row) =>
-        row.isPaid ? (
+        row.isPaid || Number(row.amount) === 0 ? (
           <CheckCircle2 size={18} className="text-green-500" />
         ) : (
           <span className="h-2.5 w-2.5 rounded-full bg-red-500 inline-block" title="Papaguar" />

@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { paymentsApi, treatmentPlansApi } from '@/lib/api';
+import { paymentsApi, treatmentPlansApi, sessionsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -122,6 +122,18 @@ export function PaymentFormDialog({
   const planCurrentDebt = Number(planSessionsRaw?.currentDebt ?? 0);
   const planInfo = planSessionsRaw?.plan;
 
+  // Standalone session (no plan): fetch session info for pre-filling
+  const isStandaloneSession = !!defaultSessionId && !defaultPlanId && !isEdit;
+  const { data: sessionInfoData, isLoading: sessionInfoLoading } = useQuery({
+    queryKey: ['payment-session-info', defaultSessionId],
+    queryFn: () => paymentsApi.getSessionInfo(defaultSessionId!),
+    enabled: isStandaloneSession,
+    staleTime: 0,
+  });
+  const standaloneSession = extractItem<{
+    id: string; amount: number; paidAmount: number; remainingAmount: number; isPaid: boolean;
+  }>(sessionInfoData);
+
   // Auto-select plan when there's exactly one, or when defaultPlanId is set
   useEffect(() => {
     if (isEdit || !patientId || plansLoading) return;
@@ -131,7 +143,7 @@ export function PaymentFormDialog({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plansLoading, patientId]);
 
-  // Pre-fill amount for defaultSessionId
+  // Pre-fill amount for defaultSessionId (plan session)
   useEffect(() => {
     if (!defaultSessionId || !planSessions.length || isEdit) return;
     const session = planSessions.find((s: any) => s.id === defaultSessionId);
@@ -140,6 +152,15 @@ export function PaymentFormDialog({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSessions, defaultSessionId]);
+
+  // Pre-fill amount for standalone session (no plan)
+  useEffect(() => {
+    if (!isStandaloneSession || !standaloneSession || isEdit) return;
+    if (!form.getValues('amount') && standaloneSession.remainingAmount > 0) {
+      form.setValue('amount', standaloneSession.remainingAmount);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standaloneSession]);
 
   // Pre-fill amount when plan has debt and amount is empty
   useEffect(() => {
@@ -183,8 +204,11 @@ export function PaymentFormDialog({
       };
       if (planId) payload.treatmentPlanId = planId;
 
-      // Send manual allocations only when overriding FIFO
-      if (!isEdit && manualAllocs && manualAllocs.size > 0) {
+      if (!isEdit && isStandaloneSession && defaultSessionId && data.amount > 0.005) {
+        // Standalone session: allocate the full payment to this specific session.
+        payload.sessionAllocations = [{ sessionId: defaultSessionId, amount: data.amount }];
+      } else if (!isEdit && manualAllocs && manualAllocs.size > 0) {
+        // Manual override for plan sessions
         payload.sessionAllocations = [...manualAllocs.entries()]
           .filter(([, amt]) => amt > 0.005)
           .map(([sessionId, amount]) => ({ sessionId, amount }));
@@ -308,6 +332,29 @@ export function PaymentFormDialog({
                         Kredit: {formatCurrency(planCredit)}
                       </span>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Standalone session info */}
+              {isStandaloneSession && sessionInfoLoading && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  <Loader2 size={13} className="animate-spin" /> Duke ngarkuar seancën...
+                </p>
+              )}
+              {isStandaloneSession && standaloneSession && !sessionInfoLoading && (
+                <div className="rounded-lg bg-muted/40 border px-3 py-2 text-sm space-y-0.5">
+                  <p className="font-medium">Seancë pa plan</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                    <span>Çmimi: {formatCurrency(standaloneSession.amount)}</span>
+                    {standaloneSession.paidAmount > 0.005 && (
+                      <span className="text-green-600 dark:text-green-400">
+                        Paguar: {formatCurrency(standaloneSession.paidAmount)}
+                      </span>
+                    )}
+                    <span className="font-medium text-destructive">
+                      Mbetet: {formatCurrency(standaloneSession.remainingAmount)}
+                    </span>
                   </div>
                 </div>
               )}
@@ -491,8 +538,8 @@ export function PaymentFormDialog({
                 </div>
               )}
 
-              {/* No plan — general credit */}
-              {!isEdit && patientId && !planId && effectiveAmount > 0 && !plansLoading && (
+              {/* No plan — general credit (only when NOT a standalone session payment) */}
+              {!isEdit && patientId && !planId && !isStandaloneSession && effectiveAmount > 0 && !plansLoading && (
                 <div className="rounded-lg border border-dashed bg-muted/20 p-3 text-sm text-center text-muted-foreground">
                   {formatCurrency(effectiveAmount)} do të ruhen si bilanc/kredit i pacientit
                 </div>

@@ -118,6 +118,39 @@ export class PaymentsService {
     return payment;
   }
 
+  // Returns financial info for a single standalone session (no plan).
+  // Used by the payment form to pre-fill the remaining amount.
+  async getSessionInfo(sessionId: string, user: any) {
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, deletedAt: null },
+      include: {
+        paymentAllocations: { select: { amount: true } },
+        patient: { select: { branchId: true } },
+      },
+    });
+    if (!session) throw new NotFoundException('Seanca nuk u gjet');
+
+    if (user.role === Role.MANAGER) {
+      const userBranchIds = user.userBranches?.map((ub: any) => ub.branchId) || [];
+      if (!userBranchIds.includes(session.patient.branchId)) {
+        throw new ForbiddenException('Nuk keni qasje në këtë seancë');
+      }
+    }
+
+    const amount = Number(session.amount?.toString() ?? '0');
+    const paidAmount = session.paymentAllocations.reduce(
+      (sum, a) => sum + Number(a.amount.toString()), 0,
+    );
+    const remainingAmount = Math.max(0, Math.round((amount - paidAmount) * 100) / 100);
+    return {
+      id: session.id,
+      amount,
+      paidAmount: Math.round(paidAmount * 100) / 100,
+      remainingAmount,
+      isPaid: session.isPaid,
+    };
+  }
+
   // Returns sessions for a plan enriched with allocation amounts, plus plan credit.
   // Used by the payment form to show what's unpaid per session.
   async getPlanSessions(planId: string, user: any) {
@@ -367,8 +400,29 @@ export class PaymentsService {
 
             // Update plan.amountPaid (total payments received for this plan)
             await this.adjustPlanAmountPaid(planId, paymentAmount, tx);
+          } else if (dto.sessionAllocations?.length) {
+            // No plan but specific session allocations → standalone session payment.
+            // Allocate directly to the session(s) and mark as paid when fully covered.
+            for (const alloc of dto.sessionAllocations) {
+              if (alloc.amount < 0.005) continue;
+              const sess = await tx.session.findUnique({
+                where: { id: alloc.sessionId },
+                include: { paymentAllocations: { select: { amount: true } } },
+              });
+              if (!sess) continue;
+              await tx.paymentAllocation.create({
+                data: { paymentId: newPayment.id, sessionId: alloc.sessionId, amount: alloc.amount },
+              });
+              const sessPrice = new Decimal(sess.amount?.toString() ?? '0');
+              const totalPaid = sess.paymentAllocations
+                .reduce((acc, a) => acc.plus(new Decimal(a.amount.toString())), new Decimal('0'))
+                .plus(new Decimal(alloc.amount.toString()));
+              if (totalPaid.gte(sessPrice.minus(0.005))) {
+                await tx.session.update({ where: { id: alloc.sessionId }, data: { isPaid: true } });
+              }
+            }
           } else {
-            // No plan → patient.balance (general credit)
+            // No plan, no session allocations → patient.balance (general credit)
             await tx.patient.update({
               where: { id: dto.patientId },
               data: { balance: { increment: paymentAmount } },
@@ -486,15 +540,15 @@ export class PaymentsService {
         });
       }
 
-      // Reverse plan.amountPaid
+      // Reverse plan.amountPaid or patient balance
       if (existing.treatmentPlanId) {
         await this.adjustPlanAmountPaid(
           existing.treatmentPlanId,
           new Decimal(existing.amount.toString()).negated(),
           tx,
         );
-      } else {
-        // Reverse patient balance for plan-less payment
+      } else if (!allocations.length) {
+        // Plan-less payment with no session allocations → was a patient balance credit, reverse it
         const pat = await tx.patient.findUnique({
           where: { id: existing.patientId },
           select: { balance: true },
@@ -507,6 +561,8 @@ export class PaymentsService {
           });
         }
       }
+      // Standalone session payment (no plan, has session allocations): only session.isPaid was
+      // updated above — no patient balance to reverse.
 
       // PaymentAllocation rows cascade-deleted with Payment
       await tx.payment.delete({ where: { id } });

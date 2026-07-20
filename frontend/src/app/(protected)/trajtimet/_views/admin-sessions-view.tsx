@@ -107,7 +107,7 @@ export function AdminSessionsView() {
     {
       header: 'Paguar',
       accessor: (row) =>
-        row.isPaid || row.treatmentPlan?.paymentStatus === 'PAID' ? (
+        row.isPaid || row.treatmentPlan?.paymentStatus === 'PAID' || Number(row.amount) === 0 ? (
           <CheckCircle2 size={18} className="text-green-500" />
         ) : (
           <div data-stop-row-click>

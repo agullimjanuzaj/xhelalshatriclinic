@@ -244,12 +244,11 @@ export function CreateSessionDialog({ open, onClose, defaultPatientId }: CreateS
                         type="number" step="0.01" min="0"
                         {...field}
                         value={field.value ?? ''}
-                        disabled={!isAdmin}
                       />
                     </FormControl>
                     {!isAdmin && (
                       <p className="text-xs text-muted-foreground">
-                        Çmimi i marrë automatikisht nga dega {selectedPatient?.branch?.name ? `(${selectedPatient.branch.name})` : ''}: {formatCurrency(field.value ?? 0)}
+                        Çmimi default nga dega {selectedPatient?.branch?.name ? `(${selectedPatient.branch.name})` : ''}: {formatCurrency(selectedPatient?.branch?.sessionPrice ?? 0)}. Mund ta ndryshoni.
                       </p>
                     )}
                     <FormMessage />

@@ -66,6 +66,13 @@ export class PaymentsController {
     return this.paymentsService.getPlanSessions(planId, user);
   }
 
+  @Get('session/:sessionId/info')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Gjendja financiare e një seance standalone (paidAmount, remainingAmount)' })
+  getSessionInfo(@Param('sessionId') sessionId: string, @CurrentUser() user: any) {
+    return this.paymentsService.getSessionInfo(sessionId, user);
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Shiko një pagesë' })

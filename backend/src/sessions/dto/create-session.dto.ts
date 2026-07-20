@@ -70,9 +70,10 @@ export class CreateSessionDto {
   @IsString({ each: true })
   treatmentTypes?: string[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Çmimi i seancës standalone (€). Vlera 0 lejohet (seancë falas), vlerat negative refuzohen.' })
   @IsOptional()
   @IsNumber()
+  @Min(0, { message: 'Çmimi i seancës nuk mund të jetë negativ' })
   @Type(() => Number)
   amount?: number;
 }

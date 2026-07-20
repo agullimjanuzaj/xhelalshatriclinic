@@ -251,6 +251,8 @@ export class SessionsService {
           recommendations: dto.recommendations,
           treatmentTypes: dto.treatmentTypes || [],
           amount,
+          // Sessions with price 0 are immediately considered paid — no payment needed.
+          isPaid: Number(amount) === 0,
           status: SessionStatus.COMPLETED,
           completedAt,
           completedByUserId,
@@ -342,13 +344,14 @@ export class SessionsService {
         data: { completedSessions: { increment: 1 } },
       });
 
-      // Auto-apply available plan credit to this session via FIFO over payments
-      await this.applyPlanCreditToSession(
-        tx,
-        dto.treatmentPlanId!,
-        newSession.id,
-        new Decimal(newSession.amount?.toString() ?? '0'),
-      );
+      const sessionAmount = new Decimal(newSession.amount?.toString() ?? '0');
+      if (sessionAmount.lte(0.005)) {
+        // Fee is 0 — mark as paid immediately, no allocation needed.
+        await tx.session.update({ where: { id: newSession.id }, data: { isPaid: true } });
+      } else {
+        // Auto-apply available plan credit to this session via FIFO over payments
+        await this.applyPlanCreditToSession(tx, dto.treatmentPlanId!, newSession.id, sessionAmount);
+      }
 
       return newSession;
     });
