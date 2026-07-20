@@ -500,6 +500,36 @@ export class SessionsService {
       await recalculatePatientStatus(this.prisma, existing.patientId);
     }
 
+    // treatmentPlanId changed (link, unlink, or switch between plans).
+    // Update each plan's completedSessions counter accordingly.
+    const newPlanId: string | null | undefined = (data as any).treatmentPlanId;
+    const planChanged = newPlanId !== undefined && newPlanId !== existing.treatmentPlanId;
+    if (planChanged) {
+      const sessionIsCompleted = updated.status === SessionStatus.COMPLETED;
+      const wasCompleted = existing.status === SessionStatus.COMPLETED;
+
+      // Decrement the old plan when this COMPLETED session was unlinked/switched away
+      if (existing.treatmentPlanId && wasCompleted) {
+        const oldPlan = await this.prisma.treatmentPlan.findUnique({ where: { id: existing.treatmentPlanId } });
+        if (oldPlan && oldPlan.completedSessions > 0) {
+          await this.prisma.treatmentPlan.update({
+            where: { id: existing.treatmentPlanId },
+            data: { completedSessions: { decrement: 1 } },
+          });
+        }
+      }
+
+      // Increment the new plan when a COMPLETED session is being linked to it
+      if (newPlanId && sessionIsCompleted) {
+        await this.prisma.treatmentPlan.update({
+          where: { id: newPlanId },
+          data: { completedSessions: { increment: 1 } },
+        });
+      }
+
+      await recalculatePatientStatus(this.prisma, existing.patientId);
+    }
+
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,

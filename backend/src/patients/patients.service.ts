@@ -218,6 +218,13 @@ export class PatientsService {
       }
     }
 
+    // Override totalPaidAmount with the direct sum of all active payment records.
+    // This is the most reliable source: it includes payments for plan sessions,
+    // standalone sessions, and pre-payments regardless of allocation or session status.
+    financials.totalPaidAmount = (patient as any).payments.reduce(
+      (sum: number, p: any) => sum + Number(p.amount), 0,
+    );
+
     let paymentStatus: string = 'UNPAID';
     if (financials.totalPaidAmount > 0 && financials.totalPaidAmount >= financials.totalTreatmentValue - 0.005) paymentStatus = 'PAID';
     else if (financials.totalPaidAmount > 0) paymentStatus = 'PARTIALLY_PAID';

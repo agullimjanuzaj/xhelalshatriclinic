@@ -85,6 +85,7 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
     queryClient.invalidateQueries({ queryKey: ['sessions-physio'] });
     queryClient.invalidateQueries({ queryKey: ['sessions-manager'] });
     queryClient.invalidateQueries({ queryKey: ['treatment-plans'] });
+    queryClient.invalidateQueries({ queryKey: ['plan-financials'] });
     queryClient.invalidateQueries({ queryKey: ['patients'] });
     queryClient.invalidateQueries({ queryKey: ['patient'] });
     queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
@@ -99,7 +100,8 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
     mutationFn: (d: FormData) => {
       const noPlan = !d.treatmentPlanId || d.treatmentPlanId === NO_PLAN;
       return sessionsApi.update(session.id, {
-        ...(noPlan ? {} : { treatmentPlanId: d.treatmentPlanId }),
+        // Always send treatmentPlanId so the backend can disconnect it when null
+        treatmentPlanId: noPlan ? null : d.treatmentPlanId,
         notes: d.notes || undefined,
         recommendations: d.recommendations || undefined,
         treatmentTypes: d.treatmentTypes,
