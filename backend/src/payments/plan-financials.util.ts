@@ -23,6 +23,33 @@ interface PlanLike {
   sessionFee: { toString(): string };
 }
 
+/**
+ * Cent-exact session price for a MANUAL_TOTAL plan.
+ *
+ * Algorithm (integer cents to eliminate floating-point drift):
+ *   baseCents = floor(totalCents / totalSessions)
+ *   remainder = totalCents % totalSessions
+ *   sessionCents = baseCents + (index < remainder ? 1 : 0)
+ *
+ * Example — 200 € / 6 sessions:
+ *   baseCents=3333, remainder=2
+ *   index 0 → 33.34 €
+ *   index 1 → 33.34 €
+ *   index 2–5 → 33.33 €
+ *   sum = 200.00 € ✓
+ */
+export function computeSessionPriceByIndex(
+  totalAmount: number,
+  totalSessions: number,
+  sessionIndex: number,
+): number {
+  if (totalSessions <= 0) return 0;
+  const totalCents = Math.round(totalAmount * 100);
+  const baseCents = Math.floor(totalCents / totalSessions);
+  const remainder = totalCents % totalSessions;
+  return (baseCents + (sessionIndex < remainder ? 1 : 0)) / 100;
+}
+
 // Computes plan financials.
 // `totalSessionAllocations` = sum(PaymentAllocation.amount) for sessions of this plan.
 // When omitted, falls back to amountPaid (backward-compat for list views without
@@ -36,7 +63,14 @@ export function computePlanFinancials(
   const completed = plan.completedSessions;
   const sessionFee = Number(plan.sessionFee.toString());
 
-  const currentEarnedAmount = Math.max(0, completed) * sessionFee;
+  // Cap at totalTreatmentValue: when a MANUAL_TOTAL plan is set (e.g. 180 € for
+  // 10 sessions at 25 € standard), sessionFee × completed could exceed totalAmount,
+  // producing an artificial debt. The plan's totalAmount is the financial contract —
+  // no more debt can accrue beyond it.
+  const currentEarnedAmount = Math.min(
+    Math.max(0, completed) * sessionFee,
+    totalTreatmentValue,
+  );
   // Credit = money received but not yet allocated to individual sessions
   const effectiveAllocations = totalSessionAllocations ?? totalPaidAmount;
   const availableCredit = Math.max(0, totalPaidAmount - effectiveAllocations);

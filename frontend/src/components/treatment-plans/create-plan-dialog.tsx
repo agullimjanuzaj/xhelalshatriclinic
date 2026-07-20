@@ -184,7 +184,11 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
   const totalSessions = form.watch('totalSessions') || 0;
   const sessionFee = form.watch('sessionFee') || 0;
   const manualTotal = form.watch('manualTotal');
+  const watchedTotalAmount = form.watch('totalAmount') || 0;
   const computedTotal = totalSessions * sessionFee;
+  const effectiveSessionPrice = manualTotal && totalSessions > 0 && watchedTotalAmount > 0
+    ? Math.round((watchedTotalAmount / totalSessions) * 100) / 100
+    : sessionFee;
 
   // "Merr sugjerime" — same shared interaction the /sugjerime page uses for
   // "Zgjidh simptomat", and the same backend endpoint: POST
@@ -579,13 +583,37 @@ export function CreatePlanDialog({ open, onClose, defaultPatientId, plan }: Crea
                 <label htmlFor="manual-total" className="text-sm cursor-pointer">Çmim total manual (special klinike)</label>
               </div>
               {manualTotal ? (
-                <FormField control={form.control} name="totalAmount" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Çmimi total (€)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <>
+                  <FormField control={form.control} name="totalAmount" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Çmimi total i kontrollës (€)</FormLabel>
+                      <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  {watchedTotalAmount > 0 && totalSessions > 0 && (
+                    <div className="rounded-md border bg-background p-3 space-y-1 text-sm mt-1">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Totali standard ({totalSessions} × {formatCurrency(sessionFee)}):</span>
+                        <span className="line-through">{formatCurrency(computedTotal)}</span>
+                      </div>
+                      <div className="flex justify-between font-medium">
+                        <span>Totali i marrëveshjes:</span>
+                        <span className="text-teal-600">{formatCurrency(watchedTotalAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Çmimi efektiv/seancë:</span>
+                        <span>{formatCurrency(effectiveSessionPrice)}</span>
+                      </div>
+                      {computedTotal > watchedTotalAmount && (
+                        <div className="flex justify-between text-green-600 border-t pt-1 mt-1">
+                          <span>Zbritja totale:</span>
+                          <span>−{formatCurrency(computedTotal - watchedTotalAmount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="text-sm">Totali i llogaritur automatikisht: <span className="font-semibold">{formatCurrency(computedTotal)}</span></p>
               )}

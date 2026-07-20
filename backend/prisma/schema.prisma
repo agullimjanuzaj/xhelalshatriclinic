@@ -56,6 +56,11 @@ enum SessionStatus {
   NO_SHOW
 }
 
+enum PricingMode {
+  STANDARD_PER_SESSION
+  MANUAL_TOTAL
+}
+
 enum SymptomType {
   NECK_PAIN
   LOWER_BACK_PAIN
@@ -354,13 +359,16 @@ model TreatmentPlan {
   treatmentTypes            String[]      @map("treatment_types")
   totalSessions             Int           @map("total_sessions")
   completedSessions         Int           @default(0) @map("completed_sessions")
-  // Single per-session price — replaces the old firstSessionFee/sessionFee
-  // split. Defaults from the patient's branch at creation time; the clinic
-  // can still override it per-plan.
+  // Effective per-session price. For STANDARD_PER_SESSION plans this equals
+  // branch.sessionPrice; for MANUAL_TOTAL plans this is totalAmount/totalSessions
+  // (rounded to 2dp). Use computeSessionPriceByIndex() for cent-exact amounts.
   sessionFee                Decimal       @default(20) @map("session_fee") @db.Decimal(10, 2)
   totalAmount               Decimal       @map("total_amount") @db.Decimal(10, 2)
   amountPaid                Decimal       @default(0) @map("amount_paid") @db.Decimal(10, 2)
   paymentStatus             PaymentStatus @default(UNPAID) @map("payment_status")
+  // STANDARD_PER_SESSION: each session costs sessionFee, total = sessionFee × totalSessions.
+  // MANUAL_TOTAL: totalAmount is the financial contract; sessions use cent-exact distribution.
+  pricingMode               PricingMode   @default(STANDARD_PER_SESSION) @map("pricing_mode")
   notes                     String?
   complaintDescription      String?       @map("complaint_description")
   isActive                  Boolean       @default(true) @map("is_active")

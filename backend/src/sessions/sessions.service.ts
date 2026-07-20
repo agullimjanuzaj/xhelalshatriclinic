@@ -8,6 +8,7 @@ import { PaginationDto, buildPaginationMeta } from '../common/dto/pagination.dto
 import { SessionStatus, Role } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { recalculatePatientStatus } from '../patients/patient-status.util';
+import { computeSessionPriceByIndex } from '../payments/plan-financials.util';
 import { generateSessionRecommendation } from './recommendation-generator.util';
 import { PushService } from '../push/push.service';
 import { GeminiService, GenerateSessionNoteInput } from '../ai/gemini.service';
@@ -318,8 +319,26 @@ export class SessionsService {
     });
     if (duplicate) throw new BadRequestException('Kjo seancë ekziston tashmë për këtë trajtim');
 
-    // Single per-session price now — no more first-session distinction.
-    const amount = treatmentPlan.sessionFee;
+    // Cent-exact price per session:
+    // - STANDARD_PER_SESSION: all sessions use sessionFee (already exact).
+    // - MANUAL_TOTAL: use index-based distribution so the sum of all session
+    //   amounts equals totalAmount precisely (avoids floating-point drift).
+    //   Also applies to legacy plans where pricingMode hasn't been set yet
+    //   but totalAmount ≠ sessionFee × totalSessions (detected automatically).
+    const isManualTotalPlan =
+      (treatmentPlan as any).pricingMode === 'MANUAL_TOTAL' ||
+      Math.abs(Number(treatmentPlan.sessionFee) * treatmentPlan.totalSessions - Number(treatmentPlan.totalAmount)) > 0.01;
+
+    let amount: any;
+    if (isManualTotalPlan) {
+      amount = computeSessionPriceByIndex(
+        Number(treatmentPlan.totalAmount),
+        treatmentPlan.totalSessions,
+        existingCount, // 0-based index of this new session
+      );
+    } else {
+      amount = treatmentPlan.sessionFee;
+    }
 
     const sessionData = {
       patientId: dto.patientId,

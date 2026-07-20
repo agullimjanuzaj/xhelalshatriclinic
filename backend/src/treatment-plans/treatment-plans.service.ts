@@ -197,7 +197,22 @@ export class TreatmentPlansService {
     // Pricing default comes from the patient's own branch's single
     // sessionPrice — never a hardcoded global. The clinic can still
     // override it per-plan for a special case.
-    const resolvedSessionFee = sessionFee ?? Number(patient.branch.sessionPrice);
+    const standardSessionFee = sessionFee ?? Number(patient.branch.sessionPrice);
+    const isManualTotal = manualTotalAmount !== undefined;
+
+    // For MANUAL_TOTAL plans, store the effective per-session price so that
+    // sessions inherit the correct amount and reports are consistent.
+    // For 180 € / 10 sessions → effectiveSessionFee = 18 €.
+    // For non-integer divisions (200 / 6 = 33.333…) we store the rounded value;
+    // the cent-exact distribution is applied per-session via computeSessionPriceByIndex().
+    const effectiveSessionFee = isManualTotal
+      ? Math.round((manualTotalAmount! / totalSessions) * 100) / 100
+      : standardSessionFee;
+
+    const totalAmount = isManualTotal
+      ? new Decimal(manualTotalAmount!)
+      : new Decimal(standardSessionFee).times(totalSessions);
+
     let finalAssignedPhysiotherapistId: string | undefined = assignedPhysiotherapistId;
 
     if (finalAssignedPhysiotherapistId) {
@@ -210,19 +225,15 @@ export class TreatmentPlansService {
       }
     }
 
-    // Single price drives the whole plan now: totalValue = totalSessions * sessionFee.
-    const totalAmount = manualTotalAmount !== undefined
-      ? new Decimal(manualTotalAmount)
-      : new Decimal(resolvedSessionFee).times(totalSessions);
-
     // Create the plan + atomically apply any existing patient credit (balance)
     const plan = await this.prisma.$transaction(async (tx) => {
       const created = await tx.treatmentPlan.create({
         data: {
           ...rest,
           totalSessions,
-          sessionFee: resolvedSessionFee,
+          sessionFee: effectiveSessionFee,
           totalAmount,
+          pricingMode: isManualTotal ? 'MANUAL_TOTAL' : 'STANDARD_PER_SESSION',
           startDate: resolvedStartDate,
           branchId,
           assignedPhysiotherapistId: finalAssignedPhysiotherapistId,
