@@ -73,6 +73,13 @@ export class PaymentsController {
     return this.paymentsService.getSessionInfo(sessionId, user);
   }
 
+  @Get('patient/:patientId/outstanding-sessions')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Seancat standalonë me borxh të pacientit (FIFO), për formularin e pagesës' })
+  getPatientOutstandingSessions(@Param('patientId') patientId: string, @CurrentUser() user: any) {
+    return this.paymentsService.getPatientOutstandingSessions(patientId, user);
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.MANAGER)
   @ApiOperation({ summary: 'Shiko një pagesë' })

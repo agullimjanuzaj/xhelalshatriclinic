@@ -122,17 +122,22 @@ export function PaymentFormDialog({
   const planCurrentDebt = Number(planSessionsRaw?.currentDebt ?? 0);
   const planInfo = planSessionsRaw?.plan;
 
-  // Standalone session (no plan): fetch session info for pre-filling
-  const isStandaloneSession = !!defaultSessionId && !defaultPlanId && !isEdit;
-  const { data: sessionInfoData, isLoading: sessionInfoLoading } = useQuery({
-    queryKey: ['payment-session-info', defaultSessionId],
-    queryFn: () => paymentsApi.getSessionInfo(defaultSessionId!),
-    enabled: isStandaloneSession,
+  // Outstanding standalone sessions for the patient (when no plan is selected)
+  const showOutstandingSessions = !isEdit && !!patientId && !planId;
+  const { data: outstandingData, isLoading: outstandingLoading } = useQuery({
+    queryKey: ['payment-patient-outstanding-sessions', patientId],
+    queryFn: () => paymentsApi.getPatientOutstandingSessions(patientId),
+    enabled: showOutstandingSessions,
     staleTime: 0,
   });
-  const standaloneSession = extractItem<{
-    id: string; amount: number; paidAmount: number; remainingAmount: number; isPaid: boolean;
-  }>(sessionInfoData);
+  const outstandingRaw = extractItem<{
+    sessions: { id: string; amount: number; paidAmount: number; remainingAmount: number; isPaid: boolean; createdAt: string; completedAt: string | null }[];
+    totalDebt: number;
+    availableBalance: number;
+  }>(outstandingData);
+  const outstandingSessions = outstandingRaw?.sessions ?? [];
+  const outstandingTotalDebt = outstandingRaw?.totalDebt ?? 0;
+  const outstandingBalance = outstandingRaw?.availableBalance ?? 0;
 
   // Auto-select plan when there's exactly one, or when defaultPlanId is set
   useEffect(() => {
@@ -153,14 +158,19 @@ export function PaymentFormDialog({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSessions, defaultSessionId]);
 
-  // Pre-fill amount for standalone session (no plan)
+  // Pre-fill amount for standalone (no plan): use the clicked session's remaining OR total debt
   useEffect(() => {
-    if (!isStandaloneSession || !standaloneSession || isEdit) return;
-    if (!form.getValues('amount') && standaloneSession.remainingAmount > 0) {
-      form.setValue('amount', standaloneSession.remainingAmount);
+    if (isEdit || !showOutstandingSessions || outstandingLoading || form.getValues('amount')) return;
+    if (defaultSessionId) {
+      const clicked = outstandingSessions.find((s) => s.id === defaultSessionId);
+      if (clicked && clicked.remainingAmount > 0) {
+        form.setValue('amount', clicked.remainingAmount);
+        return;
+      }
     }
+    if (outstandingTotalDebt > 0) form.setValue('amount', outstandingTotalDebt);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [standaloneSession]);
+  }, [outstandingLoading, outstandingSessions, defaultSessionId, outstandingTotalDebt]);
 
   // Pre-fill amount when plan has debt and amount is empty
   useEffect(() => {
@@ -175,22 +185,42 @@ export function PaymentFormDialog({
   // Reset manual allocations when amount changes
   useEffect(() => { setManualAllocs(null); }, [watchedAmount]);
 
-  // FIFO allocation preview
+  // FIFO allocation preview — for plan sessions OR standalone sessions
   const autoAllocs = useMemo((): Map<string, number> => {
-    if (!effectiveAmount || !planSessions.length) return new Map();
-    if (defaultSessionId) {
-      // When paying a specific session, only allocate to it
-      const session = planSessions.find((s: any) => s.id === defaultSessionId);
-      if (!session) return new Map();
-      const alloc = Math.min(effectiveAmount, session.remainingAmount);
-      return alloc > 0.005 ? new Map([[defaultSessionId, alloc]]) : new Map();
+    if (!effectiveAmount) return new Map();
+
+    // Plan sessions: defaultSessionId limits allocation to that session only
+    if (planId && planSessions.length) {
+      if (defaultSessionId) {
+        const session = planSessions.find((s: any) => s.id === defaultSessionId);
+        if (!session) return new Map();
+        const alloc = Math.min(effectiveAmount, session.remainingAmount);
+        return alloc > 0.005 ? new Map([[defaultSessionId, alloc]]) : new Map();
+      }
+      return computeSessionFIFO(effectiveAmount, planSessions);
     }
-    return computeSessionFIFO(effectiveAmount, planSessions);
-  }, [effectiveAmount, planSessions, defaultSessionId]);
+
+    // Standalone sessions: defaultSessionId goes first (priority), then FIFO the rest
+    if (!planId && outstandingSessions.length) {
+      const ordered = defaultSessionId
+        ? [
+            ...outstandingSessions.filter((s) => s.id === defaultSessionId),
+            ...outstandingSessions.filter((s) => s.id !== defaultSessionId),
+          ]
+        : outstandingSessions;
+      return computeSessionFIFO(effectiveAmount, ordered);
+    }
+
+    return new Map();
+  }, [effectiveAmount, planId, planSessions, outstandingSessions, defaultSessionId]);
 
   const activeAllocs = manualAllocs ?? autoAllocs;
   const totalAllocated = [...activeAllocs.values()].reduce((s, v) => s + v, 0);
   const planCreditAfter = Math.max(0, Math.round((planCredit + effectiveAmount - totalAllocated) * 100) / 100);
+  // For standalone: remainder after session allocations goes to patient.balance
+  const standaloneCreditAfter = !planId && outstandingSessions.length > 0
+    ? Math.max(0, Math.round((effectiveAmount - totalAllocated) * 100) / 100)
+    : 0;
 
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
@@ -204,12 +234,8 @@ export function PaymentFormDialog({
       };
       if (planId) payload.treatmentPlanId = planId;
 
-      if (!isEdit && isStandaloneSession && defaultSessionId && data.amount > 0.005) {
-        // Standalone session: allocate the full payment to this specific session.
-        payload.sessionAllocations = [{ sessionId: defaultSessionId, amount: data.amount }];
-      } else if (!isEdit && manualAllocs && manualAllocs.size > 0) {
-        // Manual override for plan sessions
-        payload.sessionAllocations = [...manualAllocs.entries()]
+      if (!isEdit && activeAllocs.size > 0) {
+        payload.sessionAllocations = [...activeAllocs.entries()]
           .filter(([, amt]) => amt > 0.005)
           .map(([sessionId, amount]) => ({ sessionId, amount }));
       }
@@ -233,6 +259,7 @@ export function PaymentFormDialog({
       queryClient.invalidateQueries({ queryKey: ['report-overview'] });
       queryClient.invalidateQueries({ queryKey: ['payment-form-plans', patientId] });
       queryClient.invalidateQueries({ queryKey: ['payment-plan-sessions', planId] });
+      queryClient.invalidateQueries({ queryKey: ['payment-patient-outstanding-sessions', patientId] });
       onSuccess();
       form.reset();
     },
@@ -336,25 +363,104 @@ export function PaymentFormDialog({
                 </div>
               )}
 
-              {/* Standalone session info */}
-              {isStandaloneSession && sessionInfoLoading && (
+              {/* Outstanding standalone sessions (no plan selected) */}
+              {showOutstandingSessions && outstandingLoading && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  <Loader2 size={13} className="animate-spin" /> Duke ngarkuar seancën...
+                  <Loader2 size={13} className="animate-spin" /> Duke ngarkuar seancat...
                 </p>
               )}
-              {isStandaloneSession && standaloneSession && !sessionInfoLoading && (
-                <div className="rounded-lg bg-muted/40 border px-3 py-2 text-sm space-y-0.5">
-                  <p className="font-medium">Seancë pa plan</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                    <span>Çmimi: {formatCurrency(standaloneSession.amount)}</span>
-                    {standaloneSession.paidAmount > 0.005 && (
-                      <span className="text-green-600 dark:text-green-400">
-                        Paguar: {formatCurrency(standaloneSession.paidAmount)}
-                      </span>
+              {showOutstandingSessions && !outstandingLoading && outstandingSessions.length > 0 && effectiveAmount > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-sm">Seancat pa plan</FormLabel>
+                    {manualAllocs !== null && (
+                      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs"
+                        onClick={() => setManualAllocs(null)}>
+                        Resetëso FIFO
+                      </Button>
                     )}
-                    <span className="font-medium text-destructive">
-                      Mbetet: {formatCurrency(standaloneSession.remainingAmount)}
-                    </span>
+                  </div>
+                  {outstandingSessions.map((session) => {
+                    const alloc = activeAllocs.get(session.id) ?? 0;
+                    const afterAlloc = Math.max(0, session.remainingAmount - alloc);
+                    const isFullyCovered = alloc >= session.remainingAmount - 0.005 && session.remainingAmount > 0.005;
+                    return (
+                      <div key={session.id}
+                        className={`rounded-lg border p-3 space-y-1.5 text-sm transition-colors ${
+                          session.id === defaultSessionId ? 'border-primary/30 bg-primary/5' : ''
+                        } ${isFullyCovered ? 'border-green-200 dark:border-green-900 bg-green-50/30 dark:bg-green-950/20' : ''}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">
+                            Seancë pa plan
+                            {session.id === defaultSessionId && (
+                              <span className="ml-1.5 text-xs text-primary font-normal">(e zgjedhur)</span>
+                            )}
+                          </span>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {session.completedAt ? formatDate(session.completedAt) : formatDate(session.createdAt)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Çmimi</span>
+                          <span>{formatCurrency(session.amount)}</span>
+                        </div>
+                        {session.paidAmount > 0.005 && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Paguar deri tani</span>
+                            <span className="text-green-600 dark:text-green-400 font-medium">
+                              {formatCurrency(session.paidAmount)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Mbetet pa paguar</span>
+                          <span className="font-medium text-destructive">{formatCurrency(session.remainingAmount)}</span>
+                        </div>
+                        {alloc > 0.005 && (
+                          <div className="flex items-center gap-2 pt-1.5 border-t">
+                            <span className="text-xs text-muted-foreground shrink-0">Alokohen:</span>
+                            {manualAllocs !== null ? (
+                              <Input type="number" inputMode="decimal" step="0.01" min="0"
+                                max={session.remainingAmount} className="h-7 text-xs w-24 px-2"
+                                value={alloc || ''}
+                                onChange={(e) => setManualAlloc(session.id, Number(e.target.value))} />
+                            ) : (
+                              <button type="button"
+                                className="text-xs font-semibold text-primary hover:underline cursor-pointer bg-transparent border-none p-0"
+                                onClick={() => setManualAllocs(new Map(autoAllocs))}
+                                title="Kliko për ndryshim manual">
+                                {formatCurrency(alloc)}
+                              </button>
+                            )}
+                            {isFullyCovered ? (
+                              <span className="text-xs text-green-600 dark:text-green-400 font-medium ml-auto">✓ plotësisht</span>
+                            ) : afterAlloc > 0.005 ? (
+                              <span className="text-xs text-amber-600 dark:text-amber-400 ml-auto">mbeten {formatCurrency(afterAlloc)}</span>
+                            ) : null}
+                          </div>
+                        )}
+                        {alloc < 0.005 && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <AlertCircle size={12} /> Nuk mbulohet nga kjo pagesë
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Totali i alokuar në seanca</span>
+                      <span className="font-medium">{formatCurrency(totalAllocated)}</span>
+                    </div>
+                    {standaloneCreditAfter > 0.005 && (
+                      <div className="flex justify-between">
+                        <span className="text-teal-600 dark:text-teal-400">Bilanc/kredit pas pagesës</span>
+                        <span className="font-semibold text-teal-600 dark:text-teal-400">
+                          +{formatCurrency(standaloneCreditAfter)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -538,10 +644,10 @@ export function PaymentFormDialog({
                 </div>
               )}
 
-              {/* No plan — general credit (only when NOT a standalone session payment) */}
-              {!isEdit && patientId && !planId && !isStandaloneSession && effectiveAmount > 0 && !plansLoading && (
+              {/* No plan, no outstanding sessions → general patient balance credit */}
+              {!isEdit && patientId && !planId && !outstandingLoading && outstandingSessions.length === 0 && effectiveAmount > 0 && !plansLoading && (
                 <div className="rounded-lg border border-dashed bg-muted/20 p-3 text-sm text-center text-muted-foreground">
-                  {formatCurrency(effectiveAmount)} do të ruhen si bilanc/kredit i pacientit
+                  {formatCurrency(effectiveAmount)} do të ruhen si bilanc/kredit i pacientit (nuk ka seanca të papaguara)
                 </div>
               )}
 

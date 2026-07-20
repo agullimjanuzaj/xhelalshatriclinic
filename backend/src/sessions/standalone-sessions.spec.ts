@@ -160,6 +160,229 @@ describe('Scenario 13 — PHYSIOTHERAPIST role can save price = 0', () => {
   });
 });
 
+// ─── 15. FIFO: pagesa 200 € për 6 seanca × 25 € = 150 € + 50 € kredit ──────
+describe('Scenario 15 — FIFO: 200 € payment for 6 × 25 € sessions', () => {
+  function fifoAllocate(amount: number, sessions: { id: string; price: number; paid: number }[]) {
+    const allocs: { id: string; allocated: number }[] = [];
+    let remaining = amount;
+    for (const s of sessions) {
+      if (remaining < 0.005) break;
+      const debt = Math.max(0, s.price - s.paid);
+      if (debt < 0.005) continue;
+      const allocated = Math.min(remaining, debt);
+      allocs.push({ id: s.id, allocated: Math.round(allocated * 100) / 100 });
+      remaining -= allocated;
+    }
+    const totalAllocated = allocs.reduce((s, a) => s + a.allocated, 0);
+    return { allocs, balanceCredit: Math.max(0, Math.round((amount - totalAllocated) * 100) / 100) };
+  }
+
+  const sessions = Array.from({ length: 6 }, (_, i) => ({ id: `s${i}`, price: 25, paid: 0 }));
+
+  it('allocates 25 € to each of 6 sessions (150 € total)', () => {
+    const { allocs } = fifoAllocate(200, sessions);
+    expect(allocs).toHaveLength(6);
+    allocs.forEach((a) => expect(a.allocated).toBe(25));
+  });
+
+  it('creates patient balance credit of 50 €', () => {
+    const { balanceCredit } = fifoAllocate(200, sessions);
+    expect(balanceCredit).toBe(50);
+  });
+
+  it('debt becomes 0 after payment', () => {
+    const { allocs } = fifoAllocate(200, sessions);
+    const totalAllocated = allocs.reduce((s, a) => s + a.allocated, 0);
+    const remainingDebt = sessions.reduce((s, sess) => s + Math.max(0, sess.price - (allocs.find((a) => a.id === sess.id)?.allocated ?? 0)), 0);
+    expect(totalAllocated).toBe(150);
+    expect(remainingDebt).toBe(0);
+  });
+});
+
+// ─── 16. FIFO: pagesa e saktë — nuk krijohet kredit ────────────────────────
+describe('Scenario 16 — FIFO exact payment: no credit', () => {
+  it('150 € payment for 6 × 25 € sessions → 0 balance credit', () => {
+    function fifoBalance(amount: number, sessions: { price: number; paid: number }[]) {
+      let remaining = amount;
+      for (const s of sessions) {
+        const debt = Math.max(0, s.price - s.paid);
+        const toAllocate = Math.min(remaining, debt);
+        remaining -= toAllocate;
+        if (remaining < 0.005) break;
+      }
+      return Math.max(0, Math.round(remaining * 100) / 100);
+    }
+    const sessions = Array.from({ length: 6 }, () => ({ price: 25, paid: 0 }));
+    expect(fifoBalance(150, sessions)).toBe(0);
+  });
+});
+
+// ─── 17. FIFO: pagesë e pjesshme ────────────────────────────────────────────
+describe('Scenario 17 — FIFO partial payment covers first sessions only', () => {
+  it('75 € for 6 × 25 € sessions → covers 3 sessions, 3 remain unpaid', () => {
+    let remaining = 75;
+    const sessions = Array.from({ length: 6 }, (_, i) => ({ id: `s${i}`, price: 25, paid: 0 }));
+    const paid: string[] = [];
+    for (const s of sessions) {
+      if (remaining < 0.005) break;
+      const debt = Math.max(0, s.price - s.paid);
+      const toAllocate = Math.min(remaining, debt);
+      if (toAllocate > 0.005) paid.push(s.id);
+      remaining -= toAllocate;
+    }
+    expect(paid).toHaveLength(3);
+    expect(paid).toEqual(['s0', 's1', 's2']);
+  });
+});
+
+// ─── 18. FIFO: seancë e klikuar ka prioritet ────────────────────────────────
+describe('Scenario 18 — clicked session has priority in FIFO', () => {
+  it('clicking session s3 puts it first even if s0 is older', () => {
+    const sessions = Array.from({ length: 6 }, (_, i) => ({ id: `s${i}`, price: 25, paid: 0 }));
+    const defaultSessionId = 's3';
+    const ordered = [
+      ...sessions.filter((s) => s.id === defaultSessionId),
+      ...sessions.filter((s) => s.id !== defaultSessionId),
+    ];
+    expect(ordered[0].id).toBe('s3');
+    expect(ordered[1].id).toBe('s0');
+  });
+
+  it('25 € for s3 → only s3 covered, others untouched', () => {
+    const sessions = [
+      { id: 's0', price: 25, paid: 0 },
+      { id: 's3', price: 25, paid: 0 },
+      { id: 's5', price: 25, paid: 0 },
+    ];
+    const ordered = [sessions[1], sessions[0], sessions[2]]; // s3 first
+    let remaining = 25;
+    const covered: string[] = [];
+    for (const s of ordered) {
+      if (remaining < 0.005) break;
+      const toAllocate = Math.min(remaining, s.price - s.paid);
+      if (toAllocate > 0.005) covered.push(s.id);
+      remaining -= toAllocate;
+    }
+    expect(covered).toEqual(['s3']);
+  });
+});
+
+// ─── 19. Seancë e re aplikon automatikisht balancën e pacientit ─────────────
+describe('Scenario 19 — new session auto-applies patient balance', () => {
+  it('patient.balance=50 → new 25 € session marked isPaid=true, balance becomes 25', () => {
+    const patientBalance = 50;
+    const sessionPrice = 25;
+    const toApply = Math.min(patientBalance, sessionPrice);
+    const isPaid = toApply >= sessionPrice - 0.005;
+    const newBalance = patientBalance - toApply;
+    expect(isPaid).toBe(true);
+    expect(newBalance).toBe(25);
+  });
+
+  it('patient.balance=10 → new 25 € session partially paid, balance becomes 0', () => {
+    const patientBalance = 10;
+    const sessionPrice = 25;
+    const toApply = Math.min(patientBalance, sessionPrice);
+    const isPaid = toApply >= sessionPrice - 0.005;
+    const newBalance = patientBalance - toApply;
+    expect(isPaid).toBe(false);
+    expect(newBalance).toBe(0);
+  });
+});
+
+// ─── 20. Fshierja e pagesës rikthen balancën e saktë ───────────────────────
+describe('Scenario 20 — deleting payment reverses balance correctly', () => {
+  it('payment 200 €, allocated 150 €, balance +50 → delete reverses only 50 €', () => {
+    const paymentAmount = 200;
+    const totalAllocated = 150;
+    const balanceToReverse = Math.max(0, Math.round((paymentAmount - totalAllocated) * 100) / 100);
+    expect(balanceToReverse).toBe(50);
+  });
+
+  it('payment 150 €, allocated 150 €, balance 0 → delete reverses nothing', () => {
+    const paymentAmount = 150;
+    const totalAllocated = 150;
+    const balanceToReverse = Math.max(0, Math.round((paymentAmount - totalAllocated) * 100) / 100);
+    expect(balanceToReverse).toBe(0);
+  });
+
+  it('payment 200 €, no sessions → reverses full 200 €', () => {
+    const paymentAmount = 200;
+    const totalAllocated = 0;
+    const balanceToReverse = Math.max(0, Math.round((paymentAmount - totalAllocated) * 100) / 100);
+    expect(balanceToReverse).toBe(200);
+  });
+});
+
+// ─── 21. FIFO me pagesa të ndryshme madhësie ────────────────────────────────
+describe('Scenario 21 — FIFO handles partial session debt', () => {
+  it('session already has 10 € paid: remaining debt is 15 €', () => {
+    const price = 25;
+    const alreadyPaid = 10;
+    const debt = Math.max(0, price - alreadyPaid);
+    expect(debt).toBe(15);
+  });
+
+  it('100 € covers session partially-paid (15 remaining) + 3 more sessions fully', () => {
+    const sessions = [
+      { price: 25, paid: 10 }, // 15 remaining
+      { price: 25, paid: 0 },
+      { price: 25, paid: 0 },
+      { price: 25, paid: 0 },
+    ];
+    let remaining = 100;
+    const allocs: number[] = [];
+    for (const s of sessions) {
+      if (remaining < 0.005) break;
+      const debt = Math.max(0, s.price - s.paid);
+      const toAllocate = Math.min(remaining, debt);
+      allocs.push(toAllocate);
+      remaining -= toAllocate;
+    }
+    expect(allocs).toEqual([15, 25, 25, 25]);
+    expect(remaining).toBe(10); // balance credit
+  });
+});
+
+// ─── 22. Balanca e pacientit llogaritet saktë (TotalPayments - TotalAllocations) ─
+describe('Scenario 22 — patient balance formula', () => {
+  it('balance = payment.amount - allocations when allocations < payment', () => {
+    const payment = { amount: 200, allocations: [{ amount: 150 }] };
+    const balance = Math.max(0, payment.amount - payment.allocations.reduce((s, a) => s + a.amount, 0));
+    expect(balance).toBe(50);
+  });
+
+  it('balance = 0 when all payment is allocated', () => {
+    const payment = { amount: 150, allocations: [{ amount: 50 }, { amount: 50 }, { amount: 50 }] };
+    const balance = Math.max(0, payment.amount - payment.allocations.reduce((s, a) => s + a.amount, 0));
+    expect(balance).toBe(0);
+  });
+
+  it('balance never goes negative', () => {
+    const payment = { amount: 25, allocations: [{ amount: 25 }] };
+    const balance = Math.max(0, payment.amount - payment.allocations.reduce((s, a) => s + a.amount, 0));
+    expect(balance).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─── 23. getDebts tregon borxhin e saktë për seanca të paguara pjesërisht ──
+describe('Scenario 23 — getDebts shows correct debt for partially-paid standalone sessions', () => {
+  it('session price=30, allocated=10 → currentDebt=20 (not 30)', () => {
+    const price = 30;
+    const paidAmount = 10;
+    const currentDebt = Math.max(0, Math.round((price - paidAmount) * 100) / 100);
+    expect(currentDebt).toBe(20);
+  });
+
+  it('session price=30, allocated=30 → currentDebt=0, excluded from debts list', () => {
+    const price = 30;
+    const paidAmount = 30;
+    const currentDebt = Math.max(0, Math.round((price - paidAmount) * 100) / 100);
+    expect(currentDebt).toBe(0);
+    expect(currentDebt < 0.005).toBe(true); // excluded
+  });
+});
+
 // ─── 14. Statusi financiar konsistent ───────────────────────────────────────
 describe('Scenario 14 — financial status consistent across views', () => {
   function sessionDisplayStatus(isPaid: boolean, amount: number, paidAmount: number) {

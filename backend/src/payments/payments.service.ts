@@ -118,6 +118,51 @@ export class PaymentsService {
     return payment;
   }
 
+  // Returns all outstanding standalone sessions for a patient (FIFO order).
+  // Used by the payment form when no plan is selected.
+  async getPatientOutstandingSessions(patientId: string, user: any) {
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, deletedAt: null },
+      select: { id: true, branchId: true, balance: true },
+    });
+    if (!patient) throw new NotFoundException('Pacienti nuk u gjet');
+
+    if (user.role === Role.MANAGER) {
+      const userBranchIds = user.userBranches?.map((ub: any) => ub.branchId) || [];
+      if (!userBranchIds.includes(patient.branchId)) {
+        throw new ForbiddenException('Nuk keni qasje në këtë pacient');
+      }
+    }
+
+    const sessions = await this.prisma.session.findMany({
+      where: { patientId, deletedAt: null, status: 'COMPLETED', isPaid: false, treatmentPlanId: null },
+      orderBy: { createdAt: 'asc' },
+      include: { paymentAllocations: { select: { amount: true } } },
+    });
+
+    const enriched = sessions.map((s) => {
+      const price = Number(s.amount?.toString() ?? '0');
+      const paidAmount = s.paymentAllocations.reduce((sum, a) => sum + Number(a.amount.toString()), 0);
+      const remainingAmount = Math.max(0, Math.round((price - paidAmount) * 100) / 100);
+      return {
+        id: s.id,
+        amount: price,
+        paidAmount: Math.round(paidAmount * 100) / 100,
+        remainingAmount,
+        isPaid: s.isPaid,
+        createdAt: s.createdAt,
+        completedAt: s.completedAt,
+      };
+    }).filter((s) => s.remainingAmount > 0.005);
+
+    const totalDebt = Math.round(enriched.reduce((s, sess) => s + sess.remainingAmount, 0) * 100) / 100;
+    return {
+      sessions: enriched,
+      totalDebt,
+      availableBalance: Math.max(0, Number(patient.balance.toString())),
+    };
+  }
+
   // Returns financial info for a single standalone session (no plan).
   // Used by the payment form to pre-fill the remaining amount.
   async getSessionInfo(sessionId: string, user: any) {
@@ -400,33 +445,61 @@ export class PaymentsService {
 
             // Update plan.amountPaid (total payments received for this plan)
             await this.adjustPlanAmountPaid(planId, paymentAmount, tx);
-          } else if (dto.sessionAllocations?.length) {
-            // No plan but specific session allocations → standalone session payment.
-            // Allocate directly to the session(s) and mark as paid when fully covered.
-            for (const alloc of dto.sessionAllocations) {
-              if (alloc.amount < 0.005) continue;
-              const sess = await tx.session.findUnique({
-                where: { id: alloc.sessionId },
-                include: { paymentAllocations: { select: { amount: true } } },
-              });
-              if (!sess) continue;
-              await tx.paymentAllocation.create({
-                data: { paymentId: newPayment.id, sessionId: alloc.sessionId, amount: alloc.amount },
-              });
-              const sessPrice = new Decimal(sess.amount?.toString() ?? '0');
-              const totalPaid = sess.paymentAllocations
-                .reduce((acc, a) => acc.plus(new Decimal(a.amount.toString())), new Decimal('0'))
-                .plus(new Decimal(alloc.amount.toString()));
-              if (totalPaid.gte(sessPrice.minus(0.005))) {
-                await tx.session.update({ where: { id: alloc.sessionId }, data: { isPaid: true } });
-              }
-            }
           } else {
-            // No plan, no session allocations → patient.balance (general credit)
-            await tx.patient.update({
-              where: { id: dto.patientId },
-              data: { balance: { increment: paymentAmount } },
+            // No plan: FIFO across ALL outstanding standalone sessions of the patient.
+            // If the frontend sends sessionAllocations, use them as the priority order
+            // (e.g. the session the user clicked on goes first); then FIFO the rest.
+            // Any amount remaining after all sessions → patient.balance as credit.
+
+            const outstandingSessions = await tx.session.findMany({
+              where: {
+                patientId: dto.patientId,
+                deletedAt: null,
+                status: 'COMPLETED',
+                isPaid: false,
+                treatmentPlanId: null,
+              },
+              orderBy: { createdAt: 'asc' },
+              include: { paymentAllocations: { select: { amount: true } } },
             });
+
+            const specifiedIds: string[] = (dto.sessionAllocations || []).map((a: any) => a.sessionId);
+            const ordered = [
+              ...specifiedIds
+                .map((id) => outstandingSessions.find((s) => s.id === id))
+                .filter((s): s is (typeof outstandingSessions)[0] => !!s),
+              ...outstandingSessions.filter((s) => !specifiedIds.includes(s.id)),
+            ];
+
+            let remaining = paymentAmount;
+
+            for (const sess of ordered) {
+              if (remaining.lte(0.005)) break;
+              const sessPrice = new Decimal(sess.amount?.toString() ?? '0');
+              const alreadyPaid = sess.paymentAllocations.reduce(
+                (acc, a) => acc.plus(new Decimal(a.amount.toString())),
+                new Decimal('0'),
+              );
+              const sessDebt = sessPrice.minus(alreadyPaid);
+              if (sessDebt.lte(0.005)) continue;
+
+              const toAllocate = remaining.lte(sessDebt) ? remaining : sessDebt;
+              await tx.paymentAllocation.create({
+                data: { paymentId: newPayment.id, sessionId: sess.id, amount: toAllocate },
+              });
+              if (alreadyPaid.plus(toAllocate).gte(sessPrice.minus(0.005))) {
+                await tx.session.update({ where: { id: sess.id }, data: { isPaid: true } });
+              }
+              remaining = remaining.minus(toAllocate);
+            }
+
+            // Remainder → patient.balance (credit for future sessions)
+            if (remaining.gt(0.005)) {
+              await tx.patient.update({
+                where: { id: dto.patientId },
+                data: { balance: { increment: remaining } },
+              });
+            }
           }
 
           return newPayment;
@@ -547,22 +620,26 @@ export class PaymentsService {
           new Decimal(existing.amount.toString()).negated(),
           tx,
         );
-      } else if (!allocations.length) {
-        // Plan-less payment with no session allocations → was a patient balance credit, reverse it
-        const pat = await tx.patient.findUnique({
-          where: { id: existing.patientId },
-          select: { balance: true },
-        });
-        if (pat) {
-          const newBal = new Decimal(pat.balance.toString()).minus(new Decimal(existing.amount.toString()));
-          await tx.patient.update({
+      } else {
+        // Plan-less payment: amount = allocated to sessions + remainder to patient.balance.
+        // Reverse only the patient.balance portion (allocations are cascade-deleted above).
+        const totalAllocated = allocations.reduce((sum, a) => sum + Number(a.amount.toString()), 0);
+        const paymentAmt = Number(existing.amount.toString());
+        const balanceToReverse = Math.max(0, Math.round((paymentAmt - totalAllocated) * 100) / 100);
+        if (balanceToReverse > 0.005) {
+          const pat = await tx.patient.findUnique({
             where: { id: existing.patientId },
-            data: { balance: newBal.lt(0) ? new Decimal(0) : newBal },
+            select: { balance: true },
           });
+          if (pat) {
+            const newBal = new Decimal(pat.balance.toString()).minus(new Decimal(balanceToReverse.toString()));
+            await tx.patient.update({
+              where: { id: existing.patientId },
+              data: { balance: newBal.lt(0) ? new Decimal(0) : newBal },
+            });
+          }
         }
       }
-      // Standalone session payment (no plan, has session allocations): only session.isPaid was
-      // updated above — no patient balance to reverse.
 
       // PaymentAllocation rows cascade-deleted with Payment
       await tx.payment.delete({ where: { id } });
@@ -680,11 +757,15 @@ export class PaymentsService {
       where: sessionWhere,
       include: {
         patient: { select: { id: true, firstName: true, lastName: true, phone: true, branch: { select: { id: true, name: true } } } },
+        paymentAllocations: { select: { amount: true } },
       },
     });
 
     const sessionDebts = standaloneSessions.map((s) => {
       const amount = Number(s.amount || 0);
+      const paidAmount = s.paymentAllocations.reduce((sum, a) => sum + Number(a.amount.toString()), 0);
+      const currentDebt = Math.max(0, Math.round((amount - paidAmount) * 100) / 100);
+      if (currentDebt < 0.005) return null;
       return {
         planId: null as string | null,
         sessionId: s.id,
@@ -693,15 +774,15 @@ export class PaymentsService {
         lastPaymentAt: null as Date | null,
         totalTreatmentValue: amount,
         currentEarnedAmount: amount,
-        totalPaidAmount: 0,
-        currentDebt: amount,
-        finalRemainingBalance: amount,
+        totalPaidAmount: Math.round(paidAmount * 100) / 100,
+        currentDebt,
+        finalRemainingBalance: currentDebt,
         prepaidAmount: 0,
         availableCredit: 0,
         financiallyCoveredSessions: 0,
-        paymentStatus: 'UNPAID' as string,
+        paymentStatus: paidAmount > 0.005 ? 'PARTIALLY_PAID' as string : 'UNPAID' as string,
       };
-    });
+    }).filter((d): d is NonNullable<typeof d> => d !== null);
 
     const allDebts = [...planDebts, ...sessionDebts].sort((a, b) => b.currentDebt - a.currentDebt);
     const total = allDebts.length;

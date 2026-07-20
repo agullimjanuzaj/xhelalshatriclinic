@@ -103,19 +103,26 @@ async function main() {
   }
 
   // ── 3. Patient.balance vs unallocated credit ─────────────────────────────
-  console.log('\n▸ Checking patient balances (plan-less payment credit)...');
+  // Formula: balance = sum(payment.amount) - sum(payment.allocations.amount) for plan-less payments
+  console.log('\n▸ Checking patient balances (plan-less unallocated credit)...');
   const patients = await prisma.patient.findMany({
     where: { deletedAt: null },
     include: {
       payments: {
         where: { deletedAt: null, treatmentPlanId: null },
-        select: { amount: true },
+        select: {
+          amount: true,
+          allocations: { select: { amount: true } },
+        },
       },
     },
   });
 
   for (const patient of patients) {
-    const computedBalance = patient.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const computedBalance = patient.payments.reduce((s, p) => {
+      const allocated = (p as any).allocations.reduce((a: number, alloc: any) => a + Number(alloc.amount), 0);
+      return s + Math.max(0, Number(p.amount) - allocated);
+    }, 0);
     const storedBalance = Number(patient.balance);
 
     if (Math.abs(computedBalance - storedBalance) > 0.01) {

@@ -239,30 +239,41 @@ export class SessionsService {
         amount = Number(branch.sessionPrice);
       }
 
-      const session = await this.prisma.session.create({
-        data: {
-          patientId: dto.patientId,
-          branchId: sessionBranchId,
-          physiotherapistId: user.role === Role.PHYSIOTHERAPIST ? user.id : (dto.physiotherapistId || undefined),
-          scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
-          painLevel: dto.painLevel,
-          duration: dto.duration,
-          notes: dto.notes,
-          recommendations: dto.recommendations,
-          treatmentTypes: dto.treatmentTypes || [],
-          amount,
-          // Sessions with price 0 are immediately considered paid — no payment needed.
-          isPaid: Number(amount) === 0,
-          status: SessionStatus.COMPLETED,
-          completedAt,
-          completedByUserId,
-        },
-        include: {
-          patient: { select: { id: true, firstName: true, lastName: true } },
-          branch: { select: { id: true, name: true } },
-          physiotherapist: { select: { id: true, firstName: true, lastName: true } },
-        },
+      const session = await this.prisma.$transaction(async (tx) => {
+        const newSession = await tx.session.create({
+          data: {
+            patientId: dto.patientId,
+            branchId: sessionBranchId,
+            physiotherapistId: user.role === Role.PHYSIOTHERAPIST ? user.id : (dto.physiotherapistId || undefined),
+            scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+            painLevel: dto.painLevel,
+            duration: dto.duration,
+            notes: dto.notes,
+            recommendations: dto.recommendations,
+            treatmentTypes: dto.treatmentTypes || [],
+            amount,
+            isPaid: Number(amount) === 0,
+            status: SessionStatus.COMPLETED,
+            completedAt,
+            completedByUserId,
+          },
+          include: {
+            patient: { select: { id: true, firstName: true, lastName: true } },
+            branch: { select: { id: true, name: true } },
+            physiotherapist: { select: { id: true, firstName: true, lastName: true } },
+          },
+        });
+
+        // Auto-apply existing patient balance credit (unallocated plan-less payments) to new session
+        if (Number(amount) > 0.005 && !newSession.isPaid) {
+          await this.applyPatientBalanceToNewStandaloneSession(
+            tx, newSession.id, dto.patientId, Number(amount),
+          );
+        }
+
+        return newSession;
       });
+
       await this.notifySessionCompleted(session, session);
       return session;
     }
@@ -643,6 +654,64 @@ export class SessionsService {
     // If the full session amount is covered, mark as paid
     const allocated = toAllocateTotal.minus(remaining);
     if (allocated.gte(sessionAmount.minus(0.005))) {
+      await tx.session.update({ where: { id: sessionId }, data: { isPaid: true } });
+    }
+  }
+
+  // Applies existing unallocated patient balance credit (FIFO from oldest plan-less payments)
+  // to a newly-created standalone session. Decreases patient.balance by the applied amount.
+  private async applyPatientBalanceToNewStandaloneSession(
+    tx: any,
+    sessionId: string,
+    patientId: string,
+    sessionAmount: number,
+  ): Promise<void> {
+    const patient = await tx.patient.findUnique({
+      where: { id: patientId },
+      select: { balance: true },
+    });
+    if (!patient) return;
+
+    const availableBalance = new Decimal(patient.balance.toString());
+    if (availableBalance.lte(0.005)) return;
+
+    // FIFO: oldest plan-less payments with unallocated credit
+    const payments = await tx.payment.findMany({
+      where: { patientId, treatmentPlanId: null, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      include: { allocations: { select: { amount: true } } },
+    });
+
+    const sessionDec = new Decimal(sessionAmount.toString());
+    let remaining = sessionDec;
+    let totalApplied = new Decimal('0');
+
+    for (const payment of payments) {
+      if (remaining.lte(0.005)) break;
+      const paymentAmt = new Decimal(payment.amount.toString());
+      const allocated = (payment.allocations as any[]).reduce(
+        (acc: Decimal, a: any) => acc.plus(new Decimal(a.amount.toString())),
+        new Decimal('0'),
+      );
+      const available = paymentAmt.minus(allocated);
+      if (available.lte(0.005)) continue;
+
+      const toAllocate = remaining.lte(available) ? remaining : available;
+      await tx.paymentAllocation.create({
+        data: { paymentId: payment.id, sessionId, amount: toAllocate },
+      });
+      remaining = remaining.minus(toAllocate);
+      totalApplied = totalApplied.plus(toAllocate);
+    }
+
+    if (totalApplied.lte(0.005)) return;
+
+    await tx.patient.update({
+      where: { id: patientId },
+      data: { balance: { decrement: totalApplied } },
+    });
+
+    if (totalApplied.gte(sessionDec.minus(0.005))) {
       await tx.session.update({ where: { id: sessionId }, data: { isPaid: true } });
     }
   }
