@@ -383,39 +383,47 @@ describe('Scenario 23 — getDebts shows correct debt for partially-paid standal
   });
 });
 
-// ─── 24–28. Fshierja e seancës rikthen balancën / kreditet e alokimit ────────
+// ─── 24–32. Fshierja e seancës rikthen balancën sipas tipit të pagesës ────────
+//
+// Rregulli i ri: balance restore varet nga lloji i PAGESËS (jo nga tipi i seancës):
+//   - Alokimi nga pagesë pa plan (paymentPlanId=null) → kthehet te patient.balance
+//   - Alokimi nga pagesë me plan (paymentPlanId=planId) → çlirohet kredit i planit
+//     (plan.amountPaid qëndron i njëjtë; alokimi hiqet → kredit plani rritet)
 
 function computeDeleteSessionEffect(
   session: { price: number; treatmentPlanId: string | null },
-  allocations: { amount: number }[],
+  allocations: { amount: number; paymentPlanId: string | null }[],
 ) {
   const totalAllocated = allocations.reduce((s, a) => s + a.amount, 0);
-  // Only standalone sessions (no plan) restore patient.balance
-  const balanceRestore = session.treatmentPlanId ? 0 : Math.max(0, Math.round(totalAllocated * 100) / 100);
+  // Only non-plan payment allocations return to patient.balance
+  const nonPlanAllocated = allocations
+    .filter((a) => !a.paymentPlanId)
+    .reduce((s, a) => s + a.amount, 0);
+  const balanceRestore = Math.max(0, Math.round(nonPlanAllocated * 100) / 100);
   return { totalAllocated, balanceRestore };
 }
 
 describe('Scenario 24 — delete fully-paid standalone session restores patient balance', () => {
-  it('session 25 € fully paid → patient.balance +25', () => {
+  it('session 25 €, non-plan allocation 25 € → patient.balance +25', () => {
     const { balanceRestore } = computeDeleteSessionEffect(
       { price: 25, treatmentPlanId: null },
-      [{ amount: 25 }],
+      [{ amount: 25, paymentPlanId: null }],
     );
     expect(balanceRestore).toBe(25);
   });
 });
 
 describe('Scenario 25 — delete partially-paid standalone session restores only allocated amount', () => {
-  it('session 30 €, paid 10 € → patient.balance +10 (not +30)', () => {
+  it('session 30 €, non-plan allocation 10 € → patient.balance +10 (not +30)', () => {
     const { balanceRestore } = computeDeleteSessionEffect(
       { price: 30, treatmentPlanId: null },
-      [{ amount: 10 }],
+      [{ amount: 10, paymentPlanId: null }],
     );
     expect(balanceRestore).toBe(10);
   });
 });
 
-describe('Scenario 26 — delete unpaid standalone session has no balance effect', () => {
+describe('Scenario 26 — delete unpaid session has no balance effect', () => {
   it('session 25 €, no allocations → patient.balance unchanged (+0)', () => {
     const { balanceRestore } = computeDeleteSessionEffect(
       { price: 25, treatmentPlanId: null },
@@ -425,24 +433,135 @@ describe('Scenario 26 — delete unpaid standalone session has no balance effect
   });
 });
 
-describe('Scenario 27 — delete plan session does NOT touch patient.balance', () => {
-  it('session 25 € in plan, paid 25 → patient.balance +0 (plan credit freed instead)', () => {
+describe('Scenario 27 — delete plan session allocated by NON-PLAN payment → returns to patient.balance', () => {
+  it('plan session 25 €, non-plan allocation 25 € → patient.balance +25 (new behavior)', () => {
+    // A general patient payment allocated to a plan session — when session is deleted,
+    // the freed amount returns to patient.balance (not plan credit).
     const { balanceRestore } = computeDeleteSessionEffect(
       { price: 25, treatmentPlanId: 'plan-1' },
-      [{ amount: 25 }],
+      [{ amount: 25, paymentPlanId: null }],
     );
-    expect(balanceRestore).toBe(0);
+    expect(balanceRestore).toBe(25);
   });
 });
 
 describe('Scenario 28 — delete session with multiple allocation records', () => {
-  it('two partial allocations (10+15) for 25 € session → balance +25', () => {
+  it('two non-plan allocations (10+15) for 25 € session → balance +25', () => {
     const { balanceRestore, totalAllocated } = computeDeleteSessionEffect(
       { price: 25, treatmentPlanId: null },
-      [{ amount: 10 }, { amount: 15 }],
+      [{ amount: 10, paymentPlanId: null }, { amount: 15, paymentPlanId: null }],
     );
     expect(totalAllocated).toBe(25);
     expect(balanceRestore).toBe(25);
+  });
+});
+
+describe('Scenario 29 — plan payment allocation to plan session → plan credit freed (not patient.balance)', () => {
+  it('plan session 25 €, plan allocation 25 € → patient.balance unchanged (+0)', () => {
+    const { balanceRestore } = computeDeleteSessionEffect(
+      { price: 25, treatmentPlanId: 'plan-1' },
+      [{ amount: 25, paymentPlanId: 'plan-1' }],
+    );
+    expect(balanceRestore).toBe(0);
+  });
+
+  it('mixed: 15 € from plan payment + 10 € from non-plan → balance +10 only', () => {
+    const { balanceRestore, totalAllocated } = computeDeleteSessionEffect(
+      { price: 25, treatmentPlanId: 'plan-1' },
+      [
+        { amount: 15, paymentPlanId: 'plan-1' },
+        { amount: 10, paymentPlanId: null },
+      ],
+    );
+    expect(totalAllocated).toBe(25);
+    expect(balanceRestore).toBe(10);
+  });
+});
+
+// ─── 30–32. FIFO KORREKT: seancat me plan dhe pa plan trajtohen njëlloj ───────
+
+function fifoAllocateUnified(
+  amount: number,
+  sessions: { id: string; price: number; paid: number }[],
+) {
+  const allocs: { id: string; allocated: number }[] = [];
+  let remaining = amount;
+  for (const s of sessions) {
+    if (remaining < 0.005) break;
+    const debt = Math.max(0, s.price - s.paid);
+    if (debt < 0.005) continue;
+    const allocated = Math.min(remaining, debt);
+    allocs.push({ id: s.id, allocated: Math.round(allocated * 100) / 100 });
+    remaining -= allocated;
+  }
+  const credit = Math.max(0, Math.round(remaining * 100) / 100);
+  return { allocs, credit };
+}
+
+describe('Scenario 30 — FIFO jo i filtruar: 6 seanca me plan × 25 € + pagesë 200 €', () => {
+  // Ky skenar reprodukon bug-un e raportuar:
+  // Pacienti ka 6 seanca me plan (treatmentPlanId=set).
+  // Filtri i vjetër `treatmentPlanId: null` i përjashtonte → tërë 200 € shkonte te balance.
+  // Filtri i ri (pa kufizim treatmentPlanId) → 150 € alokohet, 50 € kredit.
+
+  const sessions = Array.from({ length: 6 }, (_, i) => ({ id: `s${i}`, price: 25, paid: 0 }));
+
+  it('alokon 25 € te secila nga 6 seancat', () => {
+    const { allocs } = fifoAllocateUnified(200, sessions);
+    expect(allocs).toHaveLength(6);
+    allocs.forEach((a) => expect(a.allocated).toBe(25));
+  });
+
+  it('krijon kredit 50 € (jo 200 €)', () => {
+    const { credit } = fifoAllocateUnified(200, sessions);
+    expect(credit).toBe(50);
+  });
+
+  it('borxhi bëhet 0 pasi seancat alokohen', () => {
+    const { allocs } = fifoAllocateUnified(200, sessions);
+    const totalAllocated = allocs.reduce((s, a) => s + a.allocated, 0);
+    expect(totalAllocated).toBe(150);
+    const remainingDebt = sessions.reduce((s, sess) => {
+      const paid = allocs.find((a) => a.id === sess.id)?.allocated ?? 0;
+      return s + Math.max(0, sess.price - paid);
+    }, 0);
+    expect(remainingDebt).toBe(0);
+  });
+});
+
+describe('Scenario 31 — FIFO i unifikuar: mix seancash me plan dhe pa plan', () => {
+  it('100 € pagesa: seancat me dhe pa plan alokohen me FIFO', () => {
+    // Seancat me treatmentPlanId duhet të përfshihen njëlloj si ato pa plan
+    const mixed = [
+      { id: 'plan-s1', price: 25, paid: 0 },  // plan session
+      { id: 'standalone-s1', price: 25, paid: 0 },  // standalone
+      { id: 'plan-s2', price: 25, paid: 0 },  // plan session
+      { id: 'standalone-s2', price: 25, paid: 0 },  // standalone
+    ];
+    const { allocs, credit } = fifoAllocateUnified(100, mixed);
+    expect(allocs).toHaveLength(4);
+    expect(credit).toBe(0);
+    expect(allocs.every((a) => a.allocated === 25)).toBe(true);
+  });
+});
+
+describe('Scenario 32 — Fshierja e pagesës rikthen vetëm kreditet e paalokuara', () => {
+  it('200 € pagesë, 150 € e alokuar → reversals vetëm 50 € nga balance', () => {
+    const paymentAmount = 200;
+    const totalAllocated = 150;
+    // payments.service.ts remove() uses: balanceToReverse = max(0, payment.amount - totalAllocated)
+    const balanceToReverse = Math.max(0, Math.round((paymentAmount - totalAllocated) * 100) / 100);
+    expect(balanceToReverse).toBe(50);
+  });
+
+  it('fshirja e seancës me non-plan alokacion restauron balance (jo 0)', () => {
+    // Kjo konfirmon skenarin 30: nëse seancat janë paguar nga pagesë pa plan,
+    // fshirja e seancës duhet ta kthejë atë alokacion te patient.balance.
+    const { balanceRestore } = computeDeleteSessionEffect(
+      { price: 25, treatmentPlanId: 'plan-1' }, // plan session
+      [{ amount: 25, paymentPlanId: null }],       // allocated by non-plan payment
+    );
+    expect(balanceRestore).toBe(25); // returns to patient.balance
   });
 });
 

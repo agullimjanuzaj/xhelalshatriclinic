@@ -576,7 +576,7 @@ export class SessionsService {
       // Must delete PaymentAllocations before session.delete() — the FK has no onDelete:Cascade
       const allocations = await tx.paymentAllocation.findMany({
         where: { sessionId: id },
-        select: { amount: true, paymentId: true },
+        include: { payment: { select: { treatmentPlanId: true } } },
       });
 
       if (allocations.length > 0) {
@@ -584,15 +584,21 @@ export class SessionsService {
         allocatedPaymentIds = allocations.map((a) => a.paymentId);
         await tx.paymentAllocation.deleteMany({ where: { sessionId: id } });
 
-        // For standalone sessions (no plan): freed allocation returns to patient.balance
-        if (!existing.treatmentPlanId && totalAllocated > 0.005) {
+        // Non-plan payment allocations return to patient.balance regardless of session type.
+        // A general (plan-less) payment that allocated to this session freed that credit
+        // from patient.balance when the allocation was created — restoring it here is correct.
+        // Plan payment allocations free plan credit automatically (plan.amountPaid unchanged,
+        // fewer allocations → more available plan credit).
+        const nonPlanAllocated = allocations
+          .filter((a) => !a.payment.treatmentPlanId)
+          .reduce((sum, a) => sum + Number(a.amount.toString()), 0);
+
+        if (nonPlanAllocated > 0.005) {
           await tx.patient.update({
             where: { id: existing.patientId },
-            data: { balance: { increment: new Decimal(totalAllocated.toString()) } },
+            data: { balance: { increment: new Decimal(nonPlanAllocated.toString()) } },
           });
         }
-        // For plan sessions: freed allocation becomes available plan credit automatically
-        // (plan.amountPaid stays, but sum of allocations decreases → more credit)
       }
 
       await tx.treatment.deleteMany({ where: { sessionId: id } });

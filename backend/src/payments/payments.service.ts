@@ -135,9 +135,12 @@ export class PaymentsService {
     }
 
     const sessions = await this.prisma.session.findMany({
-      where: { patientId, deletedAt: null, status: 'COMPLETED', isPaid: false, treatmentPlanId: null },
+      where: { patientId, deletedAt: null, status: 'COMPLETED', isPaid: false },
       orderBy: { createdAt: 'asc' },
-      include: { paymentAllocations: { select: { amount: true } } },
+      include: {
+        paymentAllocations: { select: { amount: true } },
+        treatmentPlan: { select: { id: true, diagnosis: true } },
+      },
     });
 
     const enriched = sessions.map((s) => {
@@ -152,6 +155,8 @@ export class PaymentsService {
         isPaid: s.isPaid,
         createdAt: s.createdAt,
         completedAt: s.completedAt,
+        treatmentPlanId: s.treatmentPlanId,
+        planDiagnosis: (s as any).treatmentPlan?.diagnosis ?? null,
       };
     }).filter((s) => s.remainingAmount > 0.005);
 
@@ -457,7 +462,8 @@ export class PaymentsService {
                 deletedAt: null,
                 status: 'COMPLETED',
                 isPaid: false,
-                treatmentPlanId: null,
+                // No treatmentPlanId filter — include both standalone and plan sessions.
+                // A general patient payment settles ALL outstanding debt regardless of plan.
               },
               orderBy: { createdAt: 'asc' },
               include: { paymentAllocations: { select: { amount: true } } },
