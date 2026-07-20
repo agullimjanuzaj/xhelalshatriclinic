@@ -383,6 +383,69 @@ describe('Scenario 23 — getDebts shows correct debt for partially-paid standal
   });
 });
 
+// ─── 24–28. Fshierja e seancës rikthen balancën / kreditet e alokimit ────────
+
+function computeDeleteSessionEffect(
+  session: { price: number; treatmentPlanId: string | null },
+  allocations: { amount: number }[],
+) {
+  const totalAllocated = allocations.reduce((s, a) => s + a.amount, 0);
+  // Only standalone sessions (no plan) restore patient.balance
+  const balanceRestore = session.treatmentPlanId ? 0 : Math.max(0, Math.round(totalAllocated * 100) / 100);
+  return { totalAllocated, balanceRestore };
+}
+
+describe('Scenario 24 — delete fully-paid standalone session restores patient balance', () => {
+  it('session 25 € fully paid → patient.balance +25', () => {
+    const { balanceRestore } = computeDeleteSessionEffect(
+      { price: 25, treatmentPlanId: null },
+      [{ amount: 25 }],
+    );
+    expect(balanceRestore).toBe(25);
+  });
+});
+
+describe('Scenario 25 — delete partially-paid standalone session restores only allocated amount', () => {
+  it('session 30 €, paid 10 € → patient.balance +10 (not +30)', () => {
+    const { balanceRestore } = computeDeleteSessionEffect(
+      { price: 30, treatmentPlanId: null },
+      [{ amount: 10 }],
+    );
+    expect(balanceRestore).toBe(10);
+  });
+});
+
+describe('Scenario 26 — delete unpaid standalone session has no balance effect', () => {
+  it('session 25 €, no allocations → patient.balance unchanged (+0)', () => {
+    const { balanceRestore } = computeDeleteSessionEffect(
+      { price: 25, treatmentPlanId: null },
+      [],
+    );
+    expect(balanceRestore).toBe(0);
+  });
+});
+
+describe('Scenario 27 — delete plan session does NOT touch patient.balance', () => {
+  it('session 25 € in plan, paid 25 → patient.balance +0 (plan credit freed instead)', () => {
+    const { balanceRestore } = computeDeleteSessionEffect(
+      { price: 25, treatmentPlanId: 'plan-1' },
+      [{ amount: 25 }],
+    );
+    expect(balanceRestore).toBe(0);
+  });
+});
+
+describe('Scenario 28 — delete session with multiple allocation records', () => {
+  it('two partial allocations (10+15) for 25 € session → balance +25', () => {
+    const { balanceRestore, totalAllocated } = computeDeleteSessionEffect(
+      { price: 25, treatmentPlanId: null },
+      [{ amount: 10 }, { amount: 15 }],
+    );
+    expect(totalAllocated).toBe(25);
+    expect(balanceRestore).toBe(25);
+  });
+});
+
 // ─── 14. Statusi financiar konsistent ───────────────────────────────────────
 describe('Scenario 14 — financial status consistent across views', () => {
   function sessionDisplayStatus(isPaid: boolean, amount: number, paidAmount: number) {

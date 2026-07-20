@@ -142,6 +142,7 @@ export class PatientsService {
             completedByUser: { select: { id: true, firstName: true, lastName: true } },
             treatmentPlan: { select: { id: true, diagnosis: true } },
             payment: { select: { id: true, invoiceNumber: true } },
+            paymentAllocations: { select: { amount: true } },
           },
         },
         payments: {
@@ -206,21 +207,24 @@ export class PatientsService {
     for (const s of (patient as any).sessions || []) {
       if (s.treatmentPlanId || s.status !== 'COMPLETED') continue;
       const fee = Number(s.amount || 0);
+      const paidAmount = (s.paymentAllocations || []).reduce((sum: number, a: any) => sum + Number(a.amount), 0);
+      const remaining = Math.max(0, fee - paidAmount);
       financials.totalTreatmentValue += fee;
       financials.currentEarnedAmount += fee;
-      if (s.isPaid) {
-        financials.totalPaidAmount += fee;
-      } else {
-        financials.currentDebt += fee;
-        financials.finalRemainingBalance += fee;
+      financials.totalPaidAmount += Math.min(paidAmount, fee);
+      if (remaining > 0.005) {
+        financials.currentDebt += remaining;
+        financials.finalRemainingBalance += remaining;
       }
     }
 
     let paymentStatus: string = 'UNPAID';
-    if (financials.totalPaidAmount > 0 && financials.totalPaidAmount >= financials.totalTreatmentValue) paymentStatus = 'PAID';
+    if (financials.totalPaidAmount > 0 && financials.totalPaidAmount >= financials.totalTreatmentValue - 0.005) paymentStatus = 'PAID';
     else if (financials.totalPaidAmount > 0) paymentStatus = 'PARTIALLY_PAID';
 
-    return { ...patient, treatmentPlans: plansWithFinancials, financials: { ...financials, paymentStatus } };
+    const availableBalance = Math.max(0, Number((patient as any).balance?.toString() ?? '0'));
+
+    return { ...patient, treatmentPlans: plansWithFinancials, financials: { ...financials, paymentStatus, availableBalance } };
   }
 
   async create(dto: CreatePatientDto, user: any) {

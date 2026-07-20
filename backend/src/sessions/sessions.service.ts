@@ -569,7 +569,32 @@ export class SessionsService {
       }
     }
 
+    let totalAllocated = 0;
+    let allocatedPaymentIds: string[] = [];
+
     await this.prisma.$transaction(async (tx) => {
+      // Must delete PaymentAllocations before session.delete() — the FK has no onDelete:Cascade
+      const allocations = await tx.paymentAllocation.findMany({
+        where: { sessionId: id },
+        select: { amount: true, paymentId: true },
+      });
+
+      if (allocations.length > 0) {
+        totalAllocated = allocations.reduce((sum, a) => sum + Number(a.amount.toString()), 0);
+        allocatedPaymentIds = allocations.map((a) => a.paymentId);
+        await tx.paymentAllocation.deleteMany({ where: { sessionId: id } });
+
+        // For standalone sessions (no plan): freed allocation returns to patient.balance
+        if (!existing.treatmentPlanId && totalAllocated > 0.005) {
+          await tx.patient.update({
+            where: { id: existing.patientId },
+            data: { balance: { increment: new Decimal(totalAllocated.toString()) } },
+          });
+        }
+        // For plan sessions: freed allocation becomes available plan credit automatically
+        // (plan.amountPaid stays, but sum of allocations decreases → more credit)
+      }
+
       await tx.treatment.deleteMany({ where: { sessionId: id } });
       await tx.session.delete({ where: { id } });
     });
@@ -591,7 +616,14 @@ export class SessionsService {
         action: 'DELETE',
         entity: 'session',
         entityId: id,
-        oldData: { patientId: existing.patientId, treatmentPlanId: existing.treatmentPlanId, status: existing.status },
+        oldData: {
+          patientId: existing.patientId,
+          treatmentPlanId: existing.treatmentPlanId,
+          status: existing.status,
+          amount: existing.amount?.toString(),
+          totalAllocated: totalAllocated.toFixed(2),
+          allocatedPaymentIds,
+        },
       },
     });
 

@@ -230,7 +230,13 @@ export function AdminSessionsView() {
         open={!!deleteSession}
         onOpenChange={(open) => !open && setDeleteSession(null)}
         title="Fshi trajtimin?"
-        description="A jeni i sigurt që dëshironi ta fshini këtë trajtim?"
+        description={
+          deleteSession?.isPaid && !deleteSession?.treatmentPlanId
+            ? `Ky trajtim (${formatCurrency(deleteSession.amount)}) është paguar. Pas fshirjes, shuma e paguar do të kthehet automatikisht si kredit i pacientit.`
+            : deleteSession?.isPaid
+            ? `Ky trajtim (${formatCurrency(deleteSession.amount)}) është paguar brenda kontrollës. Pas fshirjes kredia lirohet brenda planit.`
+            : 'A jeni i sigurt që dëshironi ta fshini këtë trajtim?'
+        }
         onConfirm={() => deleteSession && deleteMutation.mutate(deleteSession.id)}
         isPending={deleteMutation.isPending}
       />

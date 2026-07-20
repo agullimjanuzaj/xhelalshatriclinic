@@ -89,6 +89,29 @@ export function AdminPaymentsView({ initialTab = 'payments' }: { initialTab?: 'p
       ),
     },
     {
+      header: 'E alokuar',
+      accessor: (row: any) => {
+        const allocated = (row.allocations || []).reduce((sum: number, a: any) => sum + Number(a.amount), 0);
+        const remaining = Math.max(0, Number(row.amount) - allocated);
+        const label = allocated < 0.005 ? 'E paalokuar' : remaining < 0.005 ? 'Plotësisht' : 'Pjesërisht';
+        const color = allocated < 0.005 ? 'text-muted-foreground' : remaining < 0.005 ? 'text-green-600' : 'text-amber-600';
+        return (
+          <div className="text-sm">
+            <p className="font-medium">{formatCurrency(allocated)}</p>
+            <p className={`text-xs ${color}`}>{label}</p>
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Mbetur',
+      accessor: (row: any) => {
+        const allocated = (row.allocations || []).reduce((sum: number, a: any) => sum + Number(a.amount), 0);
+        const remaining = Math.max(0, Number(row.amount) - allocated);
+        return <span className={`text-sm font-medium ${remaining > 0.005 ? 'text-amber-600' : 'text-muted-foreground'}`}>{formatCurrency(remaining)}</span>;
+      },
+    },
+    {
       header: 'Statusi',
       accessor: (row: any) => <PaymentBadge status={row.status} />,
     },

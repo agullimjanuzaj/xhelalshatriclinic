@@ -238,6 +238,9 @@ export function PatientDetailContent({ id }: { id: string }) {
               <p className="text-xs text-muted-foreground">Borxhi aktual</p>
               <p className={`text-2xl font-bold ${f?.currentDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(f?.currentDebt || 0)}</p>
               <p className="text-xs text-muted-foreground">Paguar deri tani: {formatCurrency(f?.totalPaidAmount || 0)}</p>
+              {(f?.availableBalance ?? 0) > 0.005 && (
+                <p className="text-xs text-teal-600 font-medium">Kredit: {formatCurrency(f.availableBalance)}</p>
+              )}
             </div>
             )}
           </div>
@@ -292,6 +295,9 @@ export function PatientDetailContent({ id }: { id: string }) {
                 <div><p className="text-muted-foreground">Balanca finale e mbetur</p><p className="font-semibold">{formatCurrency(f?.finalRemainingBalance || 0)}</p></div>
                 {f?.prepaidAmount > 0 && (
                   <div><p className="text-muted-foreground">Parapagim</p><p className="font-semibold text-teal-600">{formatCurrency(f.prepaidAmount)}</p></div>
+                )}
+                {(f?.availableBalance ?? 0) > 0.005 && (
+                  <div><p className="text-muted-foreground">Kredit i disponueshëm</p><p className="font-semibold text-teal-600">{formatCurrency(f.availableBalance)}</p></div>
                 )}
               </div>
               <div className="mt-4">
