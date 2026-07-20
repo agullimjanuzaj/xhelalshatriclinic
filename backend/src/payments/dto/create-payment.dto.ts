@@ -3,13 +3,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, PaymentType } from '@prisma/client';
 import { Type } from 'class-transformer';
 
-export class PaymentAllocationDto {
-  @ApiProperty({ description: 'ID e planit të trajtimit' })
+export class SessionAllocationDto {
+  @ApiProperty({ description: 'ID e seancës' })
   @IsString()
   @IsNotEmpty()
-  treatmentPlanId: string;
+  sessionId: string;
 
-  @ApiProperty({ example: 25, description: 'Shuma e alokuar për këtë plan' })
+  @ApiProperty({ example: 20, description: 'Shuma e alokuar për këtë seancë' })
   @IsNumber()
   @Min(0.01)
   @Type(() => Number)
@@ -27,26 +27,26 @@ export class CreatePaymentDto {
   @IsString()
   branchId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Kontrollë (plan trajtimi) e lidhur me pagesën' })
   @IsOptional()
   @IsString()
   treatmentPlanId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alokime manuale sipas seancës. Nëse mungojnë, backend bën FIFO automatikisht.',
+    type: [SessionAllocationDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SessionAllocationDto)
+  sessionAllocations?: SessionAllocationDto[];
 
   @ApiPropertyOptional({ description: 'Pagesë për seanca specifike standalone', type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   sessionIds?: string[];
-
-  @ApiPropertyOptional({
-    description: 'Alokimet FIFO — çdo plan me shumën e tij. Nëse mungojnë, backend llogarit FIFO automatikisht.',
-    type: [PaymentAllocationDto],
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PaymentAllocationDto)
-  allocations?: PaymentAllocationDto[];
 
   @ApiProperty({ example: 35 })
   @IsNumber()
@@ -59,7 +59,7 @@ export class CreatePaymentDto {
   @IsEnum(PaymentMethod)
   paymentMethod?: PaymentMethod;
 
-  @ApiPropertyOptional({ enum: PaymentType, description: 'Informacion mbi llojin e pagesës — statusi llogaritet gjithmonë automatikisht nga backend' })
+  @ApiPropertyOptional({ enum: PaymentType })
   @IsOptional()
   @IsEnum(PaymentType)
   paymentType?: PaymentType;
@@ -69,12 +69,12 @@ export class CreatePaymentDto {
   @IsString()
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Opsionale — default tani' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()
   paidAt?: string;
 
-  @ApiPropertyOptional({ description: 'UUID unik i gjeneruar nga frontend — backend kthen pagesën ekzistuese nëse e njëjta çelës dërgohet sërisht (mbrojtje nga dyfishimi)' })
+  @ApiPropertyOptional({ description: 'UUID unik i gjeneruar nga frontend — mbrojtje nga dyfishimi' })
   @IsOptional()
   @IsString()
   idempotencyKey?: string;

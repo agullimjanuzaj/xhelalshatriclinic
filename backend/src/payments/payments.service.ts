@@ -4,37 +4,27 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 import { PaginationDto, buildPaginationMeta } from '../common/dto/pagination.dto';
 import { PaymentStatus, Role } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { computePlanFinancials } from './plan-financials.util';
+import { computePlanFinancials, computeSessionDebt } from './plan-financials.util';
 import * as dayjs from 'dayjs';
 import { PushService } from '../push/push.service';
 
-// ---------------------------------------------------------------------------
-// FIFO allocation helper
-// Distributes `amount` across `plans` ordered by createdAt ASC.
-// Returns allocations (treatmentPlanId + amount) and the unallocated surplus
-// that should become patient credit (balance).
-// ---------------------------------------------------------------------------
-function computeFIFO(
-  amount: Decimal,
-  plans: any[],
-): { allocations: { treatmentPlanId: string; amount: Decimal }[]; unallocated: Decimal } {
-  const sorted = [...plans].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
-  const allocations: { treatmentPlanId: string; amount: Decimal }[] = [];
+// FIFO allocation of `amount` to completed sessions of a plan, oldest first.
+// Returns how much was allocated per session (for preview / validation).
+function computeSessionFIFO(
+  amount: number,
+  sessions: { id: string; amount: number; paidAmount: number }[],
+): { sessionId: string; amount: number }[] {
+  const result: { sessionId: string; amount: number }[] = [];
   let remaining = amount;
-
-  for (const plan of sorted) {
-    if (remaining.lte(0)) break;
-    const { finalRemainingBalance } = computePlanFinancials(plan);
-    if (finalRemainingBalance <= 0) continue;
-    const debt = new Decimal(finalRemainingBalance.toString());
-    const allocated = remaining.lte(debt) ? remaining : debt;
-    allocations.push({ treatmentPlanId: plan.id, amount: allocated });
-    remaining = remaining.minus(allocated);
+  for (const s of sessions) {
+    if (remaining < 0.005) break;
+    const debt = Math.max(0, s.amount - s.paidAmount);
+    if (debt < 0.005) continue;
+    const allocated = Math.min(remaining, debt);
+    result.push({ sessionId: s.id, amount: Math.round(allocated * 100) / 100 });
+    remaining -= allocated;
   }
-
-  return { allocations, unallocated: remaining };
+  return result;
 }
 
 @Injectable()
@@ -84,7 +74,7 @@ export class PaymentsService {
           treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true, totalAmount: true, amountPaid: true, sessionFee: true } },
           allocations: {
             include: {
-              treatmentPlan: { select: { id: true, diagnosis: true, totalAmount: true, amountPaid: true, sessionFee: true, completedSessions: true, totalSessions: true } },
+              session: { select: { id: true, sessionNumber: true, amount: true, completedAt: true, treatmentPlanId: true } },
             },
           },
         },
@@ -101,11 +91,17 @@ export class PaymentsService {
       include: {
         patient: { include: { branch: true } },
         branch: true,
-        treatmentPlan: { include: { sessions: { where: { deletedAt: null } } } },
-        sessions: true,
+        treatmentPlan: {
+          include: {
+            sessions: {
+              where: { deletedAt: null },
+              include: { paymentAllocations: { select: { amount: true } } },
+            },
+          },
+        },
         allocations: {
           include: {
-            treatmentPlan: { select: { id: true, diagnosis: true, totalAmount: true, amountPaid: true, sessionFee: true, completedSessions: true, totalSessions: true } },
+            session: { select: { id: true, sessionNumber: true, amount: true, completedAt: true, treatmentPlanId: true, status: true } },
           },
         },
       },
@@ -122,8 +118,68 @@ export class PaymentsService {
     return payment;
   }
 
-  // Returns all treatment plans for a patient that still have remaining balance,
-  // ordered oldest-first (FIFO order). Used by the payment form UI.
+  // Returns sessions for a plan enriched with allocation amounts, plus plan credit.
+  // Used by the payment form to show what's unpaid per session.
+  async getPlanSessions(planId: string, user: any) {
+    const plan = await this.prisma.treatmentPlan.findFirst({
+      where: { id: planId, deletedAt: null },
+      include: { patient: { select: { branchId: true } } },
+    });
+    if (!plan) throw new NotFoundException('Plani i trajtimit nuk u gjet');
+
+    if (user.role === Role.MANAGER) {
+      const userBranchIds = user.userBranches?.map((ub: any) => ub.branchId) || [];
+      if (!userBranchIds.includes(plan.patient.branchId)) {
+        throw new ForbiddenException('Nuk keni qasje në këtë plan trajtimi');
+      }
+    }
+
+    const sessions = await this.prisma.session.findMany({
+      where: { treatmentPlanId: planId, deletedAt: null, status: 'COMPLETED' },
+      orderBy: { completedAt: 'asc' },
+      include: { paymentAllocations: { select: { amount: true } } },
+    });
+
+    const enrichedSessions = sessions.map((s) => {
+      const price = Number(s.amount?.toString() ?? '0');
+      const paidAmount = s.paymentAllocations.reduce((sum, a) => sum + Number(a.amount.toString()), 0);
+      const remainingAmount = Math.max(0, price - paidAmount);
+      return {
+        id: s.id,
+        sessionNumber: s.sessionNumber,
+        completedAt: s.completedAt,
+        amount: price,
+        paidAmount: Math.round(paidAmount * 100) / 100,
+        remainingAmount: Math.round(remainingAmount * 100) / 100,
+        isPaid: s.isPaid,
+      };
+    });
+
+    // Credit = total payments received for plan − total allocated to sessions
+    const totalAllocations = enrichedSessions.reduce((s, sess) => s + sess.paidAmount, 0);
+    const totalPaid = Number(plan.amountPaid.toString());
+    const credit = Math.max(0, Math.round((totalPaid - totalAllocations) * 100) / 100);
+    const currentDebt = enrichedSessions.reduce((s, sess) => s + sess.remainingAmount, 0);
+
+    return {
+      plan: {
+        id: plan.id,
+        totalSessions: plan.totalSessions,
+        completedSessions: plan.completedSessions,
+        sessionFee: Number(plan.sessionFee.toString()),
+        totalAmount: Number(plan.totalAmount.toString()),
+        amountPaid: totalPaid,
+        paymentStatus: plan.paymentStatus,
+        diagnosis: plan.diagnosis,
+        treatmentTypes: plan.treatmentTypes,
+      },
+      sessions: enrichedSessions,
+      credit,
+      currentDebt: Math.round(currentDebt * 100) / 100,
+    };
+  }
+
+  // Returns unpaid plans for a patient (for backward-compat + debts page).
   async getUnpaidPlans(patientId: string, user: any) {
     const patient = await this.prisma.patient.findFirst({
       where: { id: patientId, deletedAt: null },
@@ -141,26 +197,32 @@ export class PaymentsService {
     const plans = await this.prisma.treatmentPlan.findMany({
       where: { patientId, deletedAt: null },
       orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        diagnosis: true,
-        totalAmount: true,
-        amountPaid: true,
-        sessionFee: true,
-        completedSessions: true,
-        totalSessions: true,
-        paymentStatus: true,
-        createdAt: true,
-        treatmentTypes: true,
+      include: {
+        sessions: {
+          where: { deletedAt: null, status: 'COMPLETED' },
+          include: { paymentAllocations: { select: { amount: true } } },
+        },
       },
     });
 
-    const withFinancials = plans
-      .map((p) => {
-        const f = computePlanFinancials(p);
-        return { ...p, ...f };
-      })
-      .filter((p) => p.finalRemainingBalance > 0);
+    const withFinancials = plans.map((p) => {
+      const totalAllocations = p.sessions.reduce((sum, s) =>
+        sum + s.paymentAllocations.reduce((a, b) => a + Number(b.amount.toString()), 0), 0);
+      const f = computePlanFinancials(p, totalAllocations);
+      return {
+        id: p.id,
+        diagnosis: p.diagnosis,
+        treatmentTypes: p.treatmentTypes,
+        totalAmount: Number(p.totalAmount.toString()),
+        amountPaid: Number(p.amountPaid.toString()),
+        sessionFee: Number(p.sessionFee.toString()),
+        completedSessions: p.completedSessions,
+        totalSessions: p.totalSessions,
+        paymentStatus: p.paymentStatus,
+        createdAt: p.createdAt,
+        ...f,
+      };
+    }).filter((p) => p.currentDebt > 0.005 || p.finalRemainingBalance > 0.005);
 
     return {
       plans: withFinancials,
@@ -169,7 +231,6 @@ export class PaymentsService {
   }
 
   async create(dto: CreatePaymentDto, user: any) {
-    // Idempotency fast-path — if same key is resent, return existing payment
     if (dto.idempotencyKey) {
       const existing = await this.prisma.payment.findUnique({
         where: { idempotencyKey: dto.idempotencyKey },
@@ -178,7 +239,7 @@ export class PaymentsService {
           branch: { select: { id: true, name: true } },
           createdByUser: { select: { id: true, firstName: true, lastName: true } },
           allocations: {
-            include: { treatmentPlan: { select: { id: true, diagnosis: true } } },
+            include: { session: { select: { id: true, sessionNumber: true, treatmentPlanId: true } } },
           },
         },
       });
@@ -203,104 +264,28 @@ export class PaymentsService {
     }
 
     const paymentAmount = new Decimal(dto.amount.toString());
+    const planId: string | null = dto.treatmentPlanId ?? null;
 
-    // Fetch all treatment plans for this patient (needed for FIFO + validation)
-    const allPlans = await this.prisma.treatmentPlan.findMany({
-      where: { patientId: dto.patientId, deletedAt: null },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    // ---- Determine allocations ----
-    // Priority: (1) explicit allocations from frontend, (2) legacy single treatmentPlanId, (3) FIFO auto
-    let rawAllocations: { treatmentPlanId: string; amount: Decimal }[];
-
-    if (dto.allocations?.length) {
-      rawAllocations = dto.allocations.map((a) => ({
-        treatmentPlanId: a.treatmentPlanId,
-        amount: new Decimal(a.amount.toString()),
-      }));
-    } else if (dto.treatmentPlanId) {
-      // Legacy: single-plan payment — allocate up to plan's remaining balance
-      const plan = allPlans.find((p) => p.id === dto.treatmentPlanId);
+    if (planId) {
+      const plan = await this.prisma.treatmentPlan.findFirst({
+        where: { id: planId, deletedAt: null },
+      });
       if (!plan) throw new NotFoundException('Plani i trajtimit nuk u gjet');
-      if (plan.patientId !== dto.patientId) throw new BadRequestException('Plani nuk i përket këtij pacienti');
-      const { finalRemainingBalance } = computePlanFinancials(plan);
-      const maxAlloc = finalRemainingBalance > 0
-        ? (paymentAmount.lte(new Decimal(finalRemainingBalance.toString())) ? paymentAmount : new Decimal(finalRemainingBalance.toString()))
-        : new Decimal(0);
-      rawAllocations = maxAlloc.gt(0) ? [{ treatmentPlanId: dto.treatmentPlanId, amount: maxAlloc }] : [];
-    } else {
-      // Auto-FIFO across all unpaid plans
-      const { allocations } = computeFIFO(paymentAmount, allPlans);
-      rawAllocations = allocations;
-    }
-
-    // ---- Validate allocations ----
-    const totalAllocated = rawAllocations.reduce((sum, a) => sum.plus(a.amount), new Decimal(0));
-    if (totalAllocated.gt(paymentAmount.plus(new Decimal('0.01')))) {
-      throw new BadRequestException(
-        `Totali i alokimeve (${totalAllocated.toFixed(2)}€) e kalon shumën e pagesës (${paymentAmount.toFixed(2)}€)`,
-      );
-    }
-
-    for (const alloc of rawAllocations) {
-      const plan = allPlans.find((p) => p.id === alloc.treatmentPlanId);
-      if (!plan) throw new NotFoundException(`Plani ${alloc.treatmentPlanId} nuk u gjet`);
       if (plan.patientId !== dto.patientId) {
         throw new BadRequestException('Plani i trajtimit nuk i përket këtij pacienti');
       }
-      const { finalRemainingBalance } = computePlanFinancials(plan);
-      if (alloc.amount.gt(new Decimal(finalRemainingBalance.toString()).plus(new Decimal('0.01')))) {
-        throw new BadRequestException(
-          `Alokimi ${alloc.amount.toFixed(2)}€ e kalon borxhin e planit ${finalRemainingBalance.toFixed(2)}€`,
-        );
-      }
     }
 
-    const unallocated = paymentAmount.minus(totalAllocated);
-
-    // ---- Validate sessions (legacy) ----
-    let targetSessions: { id: string; amount: any }[] = [];
-    if (dto.sessionIds?.length) {
-      targetSessions = await this.prisma.session.findMany({
-        where: { id: { in: dto.sessionIds }, patientId: dto.patientId, deletedAt: null },
-      });
-      if (targetSessions.length !== dto.sessionIds.length) {
-        throw new NotFoundException('Një ose disa nga seancat e zgjedhura nuk u gjetën');
-      }
-      const alreadyPaid = targetSessions.filter((s: any) => s.isPaid);
-      if (alreadyPaid.length) {
-        throw new BadRequestException('Disa nga seancat e zgjedhura janë tashmë të paguara');
-      }
-    }
-
-    // ---- Transaction with invoice number retry ----
     let payment: any;
     for (let attempt = 0; attempt < 5; attempt++) {
       const invoiceNumber = await this.generateInvoiceNumber();
       try {
         payment = await this.prisma.$transaction(async (tx) => {
-          // Re-check sessions inside transaction (concurrent safety)
-          if (dto.sessionIds?.length) {
-            const fresh = await tx.session.findMany({
-              where: { id: { in: dto.sessionIds }, patientId: dto.patientId, deletedAt: null },
-              select: { id: true, isPaid: true },
-            });
-            if (fresh.filter((s: any) => s.isPaid).length) {
-              throw new BadRequestException('Disa nga seancat e zgjedhura janë tashmë të paguara');
-            }
-          }
-
-          // Determine a primary treatmentPlanId for backward-compat display
-          const primaryPlanId = rawAllocations.length === 1
-            ? rawAllocations[0].treatmentPlanId
-            : (dto.treatmentPlanId ?? null);
-
           const newPayment = await tx.payment.create({
             data: {
               patientId: dto.patientId,
               branchId,
-              treatmentPlanId: primaryPlanId,
+              treatmentPlanId: planId,
               invoiceNumber,
               idempotencyKey: dto.idempotencyKey,
               amount: dto.amount,
@@ -318,31 +303,75 @@ export class PaymentsService {
             },
           });
 
-          // Create PaymentAllocation rows + update plan financials
-          for (const alloc of rawAllocations) {
-            await tx.paymentAllocation.create({
-              data: {
-                paymentId: newPayment.id,
-                treatmentPlanId: alloc.treatmentPlanId,
-                amount: alloc.amount,
-              },
-            });
-            await this.adjustPlanAmountPaid(alloc.treatmentPlanId, alloc.amount, tx);
-          }
+          if (planId) {
+            // Determine which sessions to allocate to
+            let sessionAllocationsToApply: { sessionId: string; amount: Decimal }[] = [];
 
-          // Mark sessions paid (legacy session-level payment)
-          if (targetSessions.length) {
-            await tx.session.updateMany({
-              where: { id: { in: targetSessions.map((s) => s.id) } },
-              data: { paymentId: newPayment.id, isPaid: true },
-            });
-          }
+            if (dto.sessionAllocations?.length) {
+              // Manual override from frontend
+              for (const alloc of dto.sessionAllocations) {
+                if (alloc.amount < 0.005) continue;
+                sessionAllocationsToApply.push({
+                  sessionId: alloc.sessionId,
+                  amount: new Decimal(alloc.amount.toString()),
+                });
+              }
+            } else {
+              // Auto-FIFO: all completed sessions for this plan, oldest first
+              const sessions = await tx.session.findMany({
+                where: { treatmentPlanId: planId, deletedAt: null, status: 'COMPLETED' },
+                orderBy: { completedAt: 'asc' },
+                include: { paymentAllocations: { select: { amount: true } } },
+              });
 
-          // Credit unallocated surplus to patient balance
-          if (unallocated.gt(new Decimal('0.005'))) {
+              let remaining = paymentAmount;
+              for (const s of sessions) {
+                if (remaining.lte(0.005)) break;
+                const sessionPrice = new Decimal(s.amount?.toString() ?? '0');
+                const alreadyPaid = s.paymentAllocations.reduce(
+                  (acc, a) => acc.plus(new Decimal(a.amount.toString())),
+                  new Decimal('0'),
+                );
+                const sessionDebt = sessionPrice.minus(alreadyPaid);
+                if (sessionDebt.lte(0.005)) continue;
+                const toAllocate = remaining.lte(sessionDebt) ? remaining : sessionDebt;
+                sessionAllocationsToApply.push({ sessionId: s.id, amount: toAllocate });
+                remaining = remaining.minus(toAllocate);
+              }
+              // Remainder stays as plan credit (not patient balance)
+            }
+
+            // Create allocation rows and update session.isPaid
+            for (const alloc of sessionAllocationsToApply) {
+              // Fetch current allocations for this session to determine if fully paid
+              const session = await tx.session.findUnique({
+                where: { id: alloc.sessionId },
+                include: { paymentAllocations: { select: { amount: true } } },
+              });
+              if (!session) continue;
+
+              await tx.paymentAllocation.create({
+                data: { paymentId: newPayment.id, sessionId: alloc.sessionId, amount: alloc.amount },
+              });
+
+              const sessionPrice = new Decimal(session.amount?.toString() ?? '0');
+              const totalPaid = session.paymentAllocations.reduce(
+                (acc, a) => acc.plus(new Decimal(a.amount.toString())),
+                new Decimal('0'),
+              ).plus(alloc.amount);
+
+              if (totalPaid.gte(sessionPrice.minus(0.005))) {
+                await tx.session.update({ where: { id: alloc.sessionId }, data: { isPaid: true } });
+              }
+            }
+
+            // Update plan.amountPaid (total payments received for this plan)
+            await this.adjustPlanAmountPaid(planId, paymentAmount, tx);
+          } else {
+            // No plan → patient.balance (general credit)
             await tx.patient.update({
               where: { id: dto.patientId },
-              data: { balance: { increment: unallocated } },
+              data: { balance: { increment: paymentAmount } },
             });
           }
 
@@ -369,56 +398,25 @@ export class PaymentsService {
       }
     }
 
-    if (dto.treatmentPlanId) {
-      const plan = await this.prisma.treatmentPlan.findFirst({
-        where: { id: dto.treatmentPlanId, deletedAt: null },
-      });
-      if (!plan) throw new NotFoundException('Plani i trajtimit nuk u gjet');
-      if (plan.patientId !== (dto.patientId || existing.patientId)) {
-        throw new BadRequestException('Plani i trajtimit nuk i përket këtij pacienti');
-      }
-    }
-
-    // For updates: reverse existing allocations, then re-apply
-    // (simplified: only handles metadata changes + single-plan amount changes)
+    // Amount change: adjust plan.amountPaid proportionally
     const oldAmount = new Decimal(existing.amount.toString());
     const newAmount = dto.amount !== undefined ? new Decimal(dto.amount.toString()) : oldAmount;
     const amountDelta = newAmount.minus(oldAmount);
 
-    if (!amountDelta.isZero()) {
-      const existingAllocs = (existing as any).allocations ?? [];
-      if (existingAllocs.length > 0) {
-        // New-style: scale existing allocations proportionally (simplified)
-        // For correctness, user should delete and recreate for amount changes
-        // that span multiple plans — we only adjust the single-plan case here.
-        if (existingAllocs.length === 1) {
-          await this.adjustPlanAmountPaid(existingAllocs[0].treatmentPlanId, amountDelta);
-        }
-      } else if (existing.treatmentPlanId) {
-        // Legacy: adjust the single linked plan
-        await this.adjustPlanAmountPaid(existing.treatmentPlanId, amountDelta);
-      }
-    }
-
-    if (dto.sessionIds !== undefined) {
-      await this.prisma.session.updateMany({ where: { paymentId: id }, data: { paymentId: null, isPaid: false } });
-      if (dto.sessionIds.length) {
-        const targetSessions = await this.prisma.session.findMany({
-          where: { id: { in: dto.sessionIds }, deletedAt: null },
+    if (!amountDelta.isZero() && existing.treatmentPlanId) {
+      await this.adjustPlanAmountPaid(existing.treatmentPlanId, amountDelta);
+    } else if (!amountDelta.isZero() && !existing.treatmentPlanId) {
+      // Adjust patient balance for plan-less payments
+      const pat = await this.prisma.patient.findUnique({
+        where: { id: existing.patientId },
+        select: { balance: true },
+      });
+      if (pat) {
+        const newBal = new Decimal(pat.balance.toString()).plus(amountDelta);
+        await this.prisma.patient.update({
+          where: { id: existing.patientId },
+          data: { balance: newBal.lt(0) ? new Decimal(0) : newBal },
         });
-        if (targetSessions.length !== dto.sessionIds.length) {
-          throw new NotFoundException('Një ose disa nga seancat e zgjedhura nuk u gjetën');
-        }
-        const totalSessionsAmount = targetSessions.reduce(
-          (sum, s) => sum.plus(s.amount ? new Decimal(s.amount.toString()) : new Decimal(0)),
-          new Decimal(0),
-        );
-        if (newAmount.gte(totalSessionsAmount)) {
-          await this.prisma.session.updateMany({
-            where: { id: { in: targetSessions.map((s) => s.id) } },
-            data: { paymentId: id, isPaid: true },
-          });
-        }
       }
     }
 
@@ -439,7 +437,7 @@ export class PaymentsService {
         branch: { select: { id: true, name: true } },
         treatmentPlan: { select: { id: true, totalSessions: true, completedSessions: true, totalAmount: true, amountPaid: true, paymentStatus: true } },
         allocations: {
-          include: { treatmentPlan: { select: { id: true, diagnosis: true } } },
+          include: { session: { select: { id: true, sessionNumber: true, treatmentPlanId: true } } },
         },
       },
     });
@@ -462,45 +460,55 @@ export class PaymentsService {
     const existing = await this.findOne(id, user);
 
     await this.prisma.$transaction(async (tx) => {
-      const allocations = await tx.paymentAllocation.findMany({ where: { paymentId: id } });
+      // Get session allocations before cascade-delete
+      const allocations = await tx.paymentAllocation.findMany({
+        where: { paymentId: id },
+        select: { sessionId: true, amount: true },
+      });
 
-      if (allocations.length > 0) {
-        // New-style: reverse each allocation from its plan
-        for (const alloc of allocations) {
-          await this.adjustPlanAmountPaid(
-            alloc.treatmentPlanId,
-            new Decimal(alloc.amount.toString()).negated(),
-            tx,
-          );
-        }
-        // Restore unallocated credit from patient balance
-        const totalAllocated = allocations.reduce(
-          (sum, a) => sum.plus(a.amount.toString()),
-          new Decimal(0),
-        );
-        const unallocated = new Decimal(existing.amount.toString()).minus(totalAllocated);
-        if (unallocated.gt(new Decimal('0.005'))) {
-          const pat = await tx.patient.findUnique({
-            where: { id: existing.patientId },
-            select: { balance: true },
-          });
-          const newBal = new Decimal((pat?.balance ?? 0).toString()).minus(unallocated);
-          await tx.patient.update({
-            where: { id: existing.patientId },
-            data: { balance: newBal.lt(0) ? new Decimal(0) : newBal },
-          });
-        }
-        // PaymentAllocation rows are cascade-deleted with Payment
-      } else if (existing.treatmentPlanId) {
-        // Legacy single-plan payment
+      // Recompute isPaid for each affected session after removing this payment's allocation
+      for (const alloc of allocations) {
+        const session = await tx.session.findUnique({
+          where: { id: alloc.sessionId },
+          include: {
+            paymentAllocations: {
+              where: { paymentId: { not: id } },
+              select: { amount: true },
+            },
+          },
+        });
+        if (!session) continue;
+        const remainingPaid = session.paymentAllocations.reduce((s, a) => s + Number(a.amount.toString()), 0);
+        const sessionPrice = Number(session.amount?.toString() ?? '0');
+        await tx.session.update({
+          where: { id: alloc.sessionId },
+          data: { isPaid: remainingPaid >= sessionPrice - 0.005 && sessionPrice > 0.005 },
+        });
+      }
+
+      // Reverse plan.amountPaid
+      if (existing.treatmentPlanId) {
         await this.adjustPlanAmountPaid(
           existing.treatmentPlanId,
           new Decimal(existing.amount.toString()).negated(),
           tx,
         );
+      } else {
+        // Reverse patient balance for plan-less payment
+        const pat = await tx.patient.findUnique({
+          where: { id: existing.patientId },
+          select: { balance: true },
+        });
+        if (pat) {
+          const newBal = new Decimal(pat.balance.toString()).minus(new Decimal(existing.amount.toString()));
+          await tx.patient.update({
+            where: { id: existing.patientId },
+            data: { balance: newBal.lt(0) ? new Decimal(0) : newBal },
+          });
+        }
       }
 
-      await tx.session.updateMany({ where: { paymentId: id }, data: { paymentId: null, isPaid: false } });
+      // PaymentAllocation rows cascade-deleted with Payment
       await tx.payment.delete({ where: { id } });
     });
 
@@ -542,27 +550,16 @@ export class PaymentsService {
     return { totalRevenue: totalRevenue._sum.amount || 0, paidCount, unpaidCount, partialCount };
   }
 
-  // Applies a signed delta to a plan's amountPaid and recomputes paymentStatus.
-  // Clamped at 0 so corrections can never push paid-amount negative.
-  private async adjustPlanAmountPaid(planId: string, delta: Decimal, tx?: any) {
-    const client = tx ?? this.prisma;
-    const plan = await client.treatmentPlan.findUnique({ where: { id: planId } });
-    if (!plan) return;
-
-    let newAmountPaid = new Decimal(plan.amountPaid.toString()).plus(delta);
-    if (newAmountPaid.isNegative()) newAmountPaid = new Decimal(0);
-    const { paymentStatus } = computePlanFinancials({ ...plan, amountPaid: newAmountPaid });
-
-    await client.treatmentPlan.update({
-      where: { id: planId },
-      data: { amountPaid: newAmountPaid, paymentStatus },
-    });
-  }
-
   async getPlanFinancials(planId: string, user: any) {
     const plan = await this.prisma.treatmentPlan.findFirst({
       where: { id: planId, deletedAt: null },
-      include: { patient: { select: { branchId: true } } },
+      include: {
+        patient: { select: { branchId: true } },
+        sessions: {
+          where: { deletedAt: null, status: 'COMPLETED' },
+          include: { paymentAllocations: { select: { amount: true } } },
+        },
+      },
     });
     if (!plan) throw new NotFoundException('Plani i trajtimit nuk u gjet');
 
@@ -573,7 +570,10 @@ export class PaymentsService {
       }
     }
 
-    return computePlanFinancials(plan);
+    const totalAllocations = (plan as any).sessions.reduce((sum: number, s: any) =>
+      sum + s.paymentAllocations.reduce((a: number, b: any) => a + Number(b.amount.toString()), 0), 0);
+
+    return computePlanFinancials(plan, totalAllocations);
   }
 
   async getDebts(branchId: string | undefined, page: number, limit: number, user: any) {
@@ -590,20 +590,29 @@ export class PaymentsService {
       include: {
         patient: { select: { id: true, firstName: true, lastName: true, phone: true, branch: { select: { id: true, name: true } } } },
         payments: { where: { deletedAt: null }, orderBy: { paidAt: 'desc' }, take: 1, select: { paidAt: true } },
+        sessions: {
+          where: { deletedAt: null, status: 'COMPLETED' },
+          include: { paymentAllocations: { select: { amount: true } } },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     const planDebts = plans
-      .map((p) => ({
-        planId: p.id as string | null,
-        sessionId: null as string | null,
-        patient: { id: p.patient.id, firstName: p.patient.firstName, lastName: p.patient.lastName, phone: p.patient.phone },
-        branch: p.patient.branch,
-        lastPaymentAt: p.payments[0]?.paidAt || null,
-        ...computePlanFinancials(p),
-      }))
-      .filter((d) => d.finalRemainingBalance > 0);
+      .map((p) => {
+        const totalAllocations = (p as any).sessions.reduce((sum: number, s: any) =>
+          sum + s.paymentAllocations.reduce((a: number, b: any) => a + Number(b.amount.toString()), 0), 0);
+        const f = computePlanFinancials(p, totalAllocations);
+        return {
+          planId: p.id as string | null,
+          sessionId: null as string | null,
+          patient: { id: p.patient.id, firstName: p.patient.firstName, lastName: p.patient.lastName, phone: p.patient.phone },
+          branch: p.patient.branch,
+          lastPaymentAt: (p as any).payments[0]?.paidAt || null,
+          ...f,
+        };
+      })
+      .filter((d) => d.currentDebt > 0.005);
 
     const sessionWhere: any = { deletedAt: null, treatmentPlanId: null, status: 'COMPLETED', isPaid: false };
     if (branchId) sessionWhere.patient = { branchId };
@@ -629,6 +638,8 @@ export class PaymentsService {
         currentDebt: amount,
         finalRemainingBalance: amount,
         prepaidAmount: 0,
+        availableCredit: 0,
+        financiallyCoveredSessions: 0,
         paymentStatus: 'UNPAID' as string,
       };
     });
@@ -637,6 +648,23 @@ export class PaymentsService {
     const total = allDebts.length;
     const skip = (page - 1) * limit;
     return { data: allDebts.slice(skip, skip + limit), meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  // Applies a signed delta to plan.amountPaid and recomputes paymentStatus.
+  // Clamped at 0 to prevent negative amountPaid from reversals on sparse data.
+  private async adjustPlanAmountPaid(planId: string, delta: Decimal, tx?: any) {
+    const client = tx ?? this.prisma;
+    const plan = await client.treatmentPlan.findUnique({ where: { id: planId } });
+    if (!plan) return;
+
+    let newAmountPaid = new Decimal(plan.amountPaid.toString()).plus(delta);
+    if (newAmountPaid.isNegative()) newAmountPaid = new Decimal(0);
+    const { paymentStatus } = computePlanFinancials({ ...plan, amountPaid: newAmountPaid });
+
+    await client.treatmentPlan.update({
+      where: { id: planId },
+      data: { amountPaid: newAmountPaid, paymentStatus },
+    });
   }
 
   private async generateInvoiceNumber(): Promise<string> {

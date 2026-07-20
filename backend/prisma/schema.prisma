@@ -379,7 +379,6 @@ model TreatmentPlan {
   sessions                Session[]
   treatments              Treatment[]
   payments                Payment[]
-  paymentAllocations      PaymentAllocation[]
   createdByUser           User?                @relation("PlanCreatedByUser", fields: [createdByUserId], references: [id])
   assignedPhysiotherapist User?                @relation("PlanAssignedPhysiotherapist", fields: [assignedPhysiotherapistId], references: [id])
 
@@ -432,8 +431,9 @@ model Session {
   priceChangedByUser User?          @relation("SessionPriceChangedBy", fields: [priceChangedByUserId], references: [id])
   treatmentPlan      TreatmentPlan? @relation(fields: [treatmentPlanId], references: [id])
   treatments         Treatment[]
-  payment            Payment?       @relation(fields: [paymentId], references: [id])
-  paymentId          String?        @map("payment_id")
+  payment            Payment?          @relation(fields: [paymentId], references: [id])
+  paymentId          String?           @map("payment_id")
+  paymentAllocations PaymentAllocation[]
 
   @@index([patientId])
   @@index([branchId])
@@ -532,18 +532,18 @@ model Payment {
 // that plan. The sum of all allocations for a payment <= payment.amount;
 // the remainder stays as Patient.balance (unallocated credit).
 model PaymentAllocation {
-  id              String   @id @default(uuid())
-  paymentId       String   @map("payment_id")
-  treatmentPlanId String   @map("treatment_plan_id")
-  amount          Decimal  @db.Decimal(10, 2)
-  createdAt       DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  paymentId String   @map("payment_id")
+  sessionId String   @map("session_id")
+  amount    Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @map("created_at")
 
-  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  treatmentPlan TreatmentPlan @relation(fields: [treatmentPlanId], references: [id])
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id])
 
-  @@unique([paymentId, treatmentPlanId])
+  @@unique([paymentId, sessionId])
   @@index([paymentId])
-  @@index([treatmentPlanId])
+  @@index([sessionId])
   @@map("payment_allocations")
 }
 

@@ -308,52 +308,50 @@ export class SessionsService {
     // Single per-session price now — no more first-session distinction.
     const amount = treatmentPlan.sessionFee;
 
-    const session = await this.prisma.session.create({
-      data: {
-        patientId: dto.patientId,
-        branchId: dto.branchId || treatmentPlan.branchId || patient.branchId,
-        treatmentPlanId: dto.treatmentPlanId,
-        sessionNumber,
-        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
-        painLevel: dto.painLevel,
-        duration: dto.duration,
-        notes: dto.notes,
-        recommendations: dto.recommendations,
-        treatmentTypes: dto.treatmentTypes || treatmentPlan.treatmentTypes || [],
-        amount: dto.amount ?? amount,
-        physiotherapistId: user.role === Role.PHYSIOTHERAPIST ? user.id : (dto.physiotherapistId || treatmentPlan.assignedPhysiotherapistId || undefined),
-        status: SessionStatus.COMPLETED,
-        completedAt,
-        completedByUserId,
-      },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        branch: { select: { id: true, name: true } },
-        physiotherapist: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
+    const sessionData = {
+      patientId: dto.patientId,
+      branchId: dto.branchId || treatmentPlan.branchId || patient.branchId,
+      treatmentPlanId: dto.treatmentPlanId,
+      sessionNumber,
+      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+      painLevel: dto.painLevel,
+      duration: dto.duration,
+      notes: dto.notes,
+      recommendations: dto.recommendations,
+      treatmentTypes: dto.treatmentTypes || treatmentPlan.treatmentTypes || [],
+      amount: dto.amount ?? amount,
+      physiotherapistId: user.role === Role.PHYSIOTHERAPIST ? user.id : (dto.physiotherapistId || treatmentPlan.assignedPhysiotherapistId || undefined),
+      status: SessionStatus.COMPLETED,
+      completedAt,
+      completedByUserId,
+    };
 
-    // The session was created already-completed, so the plan's counters
-    // must move in lockstep — this used to only happen on the separate
-    // /complete step, which no longer exists in the normal creation flow.
-    await this.prisma.treatmentPlan.update({
-      where: { id: dto.treatmentPlanId },
-      data: { completedSessions: { increment: 1 } },
-    });
-
-    // Auto-mark the session as paid if the plan already has enough prepaid
-    // credit to cover it. completedSessions hasn't been re-read after the
-    // increment above, so add 1 to get the new total.
-    const newCompletedCount = new Decimal(treatmentPlan.completedSessions + 1);
-    const sessionFeeDecimal = new Decimal(treatmentPlan.sessionFee.toString());
-    const amountPaidDecimal = new Decimal(treatmentPlan.amountPaid.toString());
-    if (amountPaidDecimal.gte(sessionFeeDecimal.mul(newCompletedCount))) {
-      await this.prisma.session.update({
-        where: { id: session.id },
-        data: { isPaid: true },
+    // Wrap session creation + plan counter + credit application in one transaction
+    const session = await this.prisma.$transaction(async (tx) => {
+      const newSession = await tx.session.create({
+        data: sessionData,
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true } },
+          branch: { select: { id: true, name: true } },
+          physiotherapist: { select: { id: true, firstName: true, lastName: true } },
+        },
       });
-      (session as any).isPaid = true;
-    }
+
+      await tx.treatmentPlan.update({
+        where: { id: dto.treatmentPlanId },
+        data: { completedSessions: { increment: 1 } },
+      });
+
+      // Auto-apply available plan credit to this session via FIFO over payments
+      await this.applyPlanCreditToSession(
+        tx,
+        dto.treatmentPlanId!,
+        newSession.id,
+        new Decimal(newSession.amount?.toString() ?? '0'),
+      );
+
+      return newSession;
+    });
 
     await recalculatePatientStatus(this.prisma, dto.patientId);
 
@@ -584,6 +582,66 @@ export class SessionsService {
     });
 
     return { message: 'Seanca u fshi me sukses' };
+  }
+
+  // Checks if the plan has unallocated credit and allocates it (FIFO over
+  // payments) to the newly created session. Called inside a $transaction.
+  private async applyPlanCreditToSession(
+    tx: any,
+    planId: string,
+    sessionId: string,
+    sessionAmount: Decimal,
+  ): Promise<void> {
+    if (sessionAmount.lte(0.005)) return;
+
+    const plan = await tx.treatmentPlan.findUnique({
+      where: { id: planId },
+      select: { amountPaid: true },
+    });
+    if (!plan) return;
+
+    // Sum all existing allocations for sessions of this plan (excluding new session)
+    const existingAllocs = await tx.paymentAllocation.aggregate({
+      where: { session: { treatmentPlanId: planId } },
+      _sum: { amount: true },
+    });
+    const totalAllocated = new Decimal(existingAllocs._sum?.amount?.toString() ?? '0');
+    const totalPaid = new Decimal(plan.amountPaid.toString());
+    const credit = totalPaid.minus(totalAllocated);
+
+    if (credit.lte(0.005)) return;
+
+    // FIFO over plan's payments (oldest first) — find which payment(s) have remaining capacity
+    const payments = await tx.payment.findMany({
+      where: { treatmentPlanId: planId, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      include: { allocations: { select: { amount: true } } },
+    });
+
+    const toAllocateTotal = credit.lte(sessionAmount) ? credit : sessionAmount;
+    let remaining = toAllocateTotal;
+
+    for (const payment of payments) {
+      if (remaining.lte(0.005)) break;
+      const paymentAllocated = payment.allocations.reduce(
+        (acc: Decimal, a: any) => acc.plus(new Decimal(a.amount.toString())),
+        new Decimal('0'),
+      );
+      const paymentAvailable = new Decimal(payment.amount.toString()).minus(paymentAllocated);
+      if (paymentAvailable.lte(0.005)) continue;
+
+      const toAllocate = remaining.lte(paymentAvailable) ? remaining : paymentAvailable;
+      await tx.paymentAllocation.create({
+        data: { paymentId: payment.id, sessionId, amount: toAllocate },
+      });
+      remaining = remaining.minus(toAllocate);
+    }
+
+    // If the full session amount is covered, mark as paid
+    const allocated = toAllocateTotal.minus(remaining);
+    if (allocated.gte(sessionAmount.minus(0.005))) {
+      await tx.session.update({ where: { id: sessionId }, data: { isPaid: true } });
+    }
   }
 
   private async notifySessionCompleted(session: any, updated: any) {

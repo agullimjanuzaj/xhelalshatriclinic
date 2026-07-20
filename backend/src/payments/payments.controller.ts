@@ -54,9 +54,16 @@ export class PaymentsController {
 
   @Get('patient/:patientId/unpaid-plans')
   @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: 'Planet e papaguara të pacientit + bilanci i tij (për formularin e pagesës)' })
+  @ApiOperation({ summary: 'Planet e papaguara të pacientit (për formularin e pagesës)' })
   getUnpaidPlans(@Param('patientId') patientId: string, @CurrentUser() user: any) {
     return this.paymentsService.getUnpaidPlans(patientId, user);
+  }
+
+  @Get('plan/:planId/sessions')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Seancat e një kontrollë me gjendjen e pagesës (për formularin e pagesës)' })
+  getPlanSessions(@Param('planId') planId: string, @CurrentUser() user: any) {
+    return this.paymentsService.getPlanSessions(planId, user);
   }
 
   @Get(':id')
