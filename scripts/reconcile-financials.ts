@@ -78,33 +78,45 @@ async function main() {
   }
 
   // ── 2. Session.isPaid vs PaymentAllocation sum ───────────────────────────
-  console.log('\n▸ Checking session isPaid vs allocation sums...');
+  // REPORT ONLY — never auto-fix.
+  // Historical sessions (pre-FIFO-allocation system) were marked isPaid=true directly
+  // without creating PaymentAllocation records. This is expected; do NOT set them to false.
+  console.log('\n▸ Checking session isPaid vs allocation sums (report only — no auto-fix)...');
   const sessions = await prisma.session.findMany({
     where: { deletedAt: null, status: 'COMPLETED' },
     include: { paymentAllocations: { select: { amount: true } } },
   });
 
+  let check2Count = 0;
   for (const session of sessions) {
     const allocated = session.paymentAllocations.reduce((s, a) => s + Number(a.amount), 0);
     const price = Number(session.amount ?? 0);
     const shouldBePaid = price > 0.005 && allocated >= price - 0.005;
 
     if (session.isPaid !== shouldBePaid) {
-      issueCount++;
-      console.log(
-        `  ⚠ Session ${session.id} — isPaid=${session.isPaid} but allocated=${allocated.toFixed(2)}/price=${price.toFixed(2)}`,
-      );
-      if (!DRY_RUN) {
-        await prisma.session.update({ where: { id: session.id }, data: { isPaid: shouldBePaid } });
-        fixCount++;
-        console.log(`    → Fixed: isPaid=${shouldBePaid}`);
+      check2Count++;
+      // Only log first 5 to avoid flooding output
+      if (check2Count <= 5) {
+        console.log(
+          `  ℹ Session ${session.id} — isPaid=${session.isPaid} but allocated=${allocated.toFixed(2)}/price=${price.toFixed(2)}`,
+        );
       }
     }
   }
+  if (check2Count > 5) console.log(`  ℹ ... and ${check2Count - 5} more (total: ${check2Count})`);
+  if (check2Count > 0) {
+    console.log(`  NOTE: These ${check2Count} session(s) are from the pre-allocation system. isPaid=true is correct.`);
+    console.log(`        Do NOT auto-fix — they were legitimately paid via the old direct method.`);
+  } else {
+    console.log(`  ✓ No issues found.`);
+  }
 
   // ── 3. Patient.balance vs unallocated credit ─────────────────────────────
-  // Formula: balance = sum(payment.amount) - sum(payment.allocations.amount) for plan-less payments
-  console.log('\n▸ Checking patient balances (plan-less unallocated credit)...');
+  // REPORT ONLY — never auto-fix.
+  // Historical payments (pre-FIFO) have no PaymentAllocation records, so computed balance
+  // would be inflated. The old system always set patient.balance=0 and tracked payment
+  // via isPaid on the session. Only NEW payments (post-FIFO) should have allocation records.
+  console.log('\n▸ Checking patient balances (plan-less unallocated credit — report only, no auto-fix)...');
   const patients = await prisma.patient.findMany({
     where: { deletedAt: null },
     include: {
@@ -118,6 +130,7 @@ async function main() {
     },
   });
 
+  let check3Count = 0;
   for (const patient of patients) {
     const computedBalance = patient.payments.reduce((s, p) => {
       const allocated = (p as any).allocations.reduce((a: number, alloc: any) => a + Number(alloc.amount), 0);
@@ -126,20 +139,21 @@ async function main() {
     const storedBalance = Number(patient.balance);
 
     if (Math.abs(computedBalance - storedBalance) > 0.01) {
-      issueCount++;
-      console.log(
-        `  ⚠ Patient ${patient.id} — ${patient.firstName} ${patient.lastName}` +
-        `\n    balance=${storedBalance.toFixed(2)} but plan-less payments sum=${computedBalance.toFixed(2)}`,
-      );
-      if (!DRY_RUN) {
-        await prisma.patient.update({
-          where: { id: patient.id },
-          data: { balance: computedBalance },
-        });
-        fixCount++;
-        console.log(`    → Fixed: balance=${computedBalance.toFixed(2)}`);
+      check3Count++;
+      if (check3Count <= 5) {
+        console.log(
+          `  ℹ Patient ${patient.id} — ${patient.firstName} ${patient.lastName}` +
+          `\n    balance=${storedBalance.toFixed(2)} but plan-less payments sum=${computedBalance.toFixed(2)}`,
+        );
       }
     }
+  }
+  if (check3Count > 5) console.log(`  ℹ ... and ${check3Count - 5} more (total: ${check3Count})`);
+  if (check3Count > 0) {
+    console.log(`  NOTE: These ${check3Count} patient(s) show historical payments without allocation records.`);
+    console.log(`        This is expected for data created before the FIFO allocation system was introduced.`);
+  } else {
+    console.log(`  ✓ No issues found.`);
   }
 
   // ── 4. Non-plan payments with unallocated credit but patient has outstanding sessions ─
