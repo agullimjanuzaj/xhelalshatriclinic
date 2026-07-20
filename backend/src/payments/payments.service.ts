@@ -573,7 +573,7 @@ export class PaymentsService {
     const totalAllocations = (plan as any).sessions.reduce((sum: number, s: any) =>
       sum + s.paymentAllocations.reduce((a: number, b: any) => a + Number(b.amount.toString()), 0), 0);
 
-    return computePlanFinancials(plan, totalAllocations);
+    return computePlanFinancials(plan, totalAllocations || undefined);
   }
 
   async getDebts(branchId: string | undefined, page: number, limit: number, user: any) {
@@ -602,7 +602,10 @@ export class PaymentsService {
       .map((p) => {
         const totalAllocations = (p as any).sessions.reduce((sum: number, s: any) =>
           sum + s.paymentAllocations.reduce((a: number, b: any) => a + Number(b.amount.toString()), 0), 0);
-        const f = computePlanFinancials(p, totalAllocations);
+        // Pass undefined when totalAllocations is 0 so computePlanFinancials falls
+        // back to amountPaid — avoids inflated debt figures during the transition
+        // period when the allocation table was cleared by the schema migration.
+        const f = computePlanFinancials(p, totalAllocations || undefined);
         return {
           planId: p.id as string | null,
           sessionId: null as string | null,

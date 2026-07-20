@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PatientCombobox } from '@/components/ui/patient-combobox';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react';
-import { formatCurrency, formatDate, extractList } from '@/lib/utils';
+import { formatCurrency, formatDate, extractList, extractItem } from '@/lib/utils';
 
 // Client-side FIFO: distributes `amount` across unpaid sessions (oldest first).
 function computeSessionFIFO(
@@ -116,10 +116,11 @@ export function PaymentFormDialog({
     enabled: !!planId && !isEdit,
     staleTime: 0,
   });
-  const planSessions = (planSessionsData as any)?.sessions ?? [];
-  const planCredit = Number((planSessionsData as any)?.credit ?? 0);
-  const planCurrentDebt = Number((planSessionsData as any)?.currentDebt ?? 0);
-  const planInfo = (planSessionsData as any)?.plan;
+  const planSessionsRaw = extractItem<{ sessions: any[]; credit: number; currentDebt: number; plan: any }>(planSessionsData);
+  const planSessions = planSessionsRaw?.sessions ?? [];
+  const planCredit = Number(planSessionsRaw?.credit ?? 0);
+  const planCurrentDebt = Number(planSessionsRaw?.currentDebt ?? 0);
+  const planInfo = planSessionsRaw?.plan;
 
   // Auto-select plan when there's exactly one, or when defaultPlanId is set
   useEffect(() => {

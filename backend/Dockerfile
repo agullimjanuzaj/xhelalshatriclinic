@@ -28,4 +28,4 @@ RUN mkdir -p uploads
 
 EXPOSE 4000
 
-CMD sh -c "node node_modules/prisma/build/index.js db push --accept-data-loss && (node node_modules/prisma/build/index.js db seed || echo 'Seed skipped (data already exists)') && node dist/main"
+CMD sh -c "echo 'TRUNCATE TABLE payment_allocations;' | node node_modules/prisma/build/index.js db execute --stdin --url \"$DATABASE_URL\" 2>/dev/null || true && node node_modules/prisma/build/index.js db push --accept-data-loss && (node node_modules/prisma/build/index.js db seed || echo 'Seed skipped (data already exists)') && node dist/main"
