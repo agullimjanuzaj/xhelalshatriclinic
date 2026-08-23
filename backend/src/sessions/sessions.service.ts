@@ -544,16 +544,27 @@ export class SessionsService {
     return updated;
   }
 
-  // ADMIN/MANAGER: override the price of one specific session (e.g. a one-off
-  // discount or free session) without touching the treatment plan's sessionFee.
-  // When the new price is lower than what's already allocated, excess allocations
-  // are released and credited back to the patient's balance — all inside one
-  // transaction so there is never a partial state.
+  // ADMIN-only: set any arbitrary price on a specific session.
   async updatePrice(id: string, dto: UpdateSessionPriceDto, user: any) {
-    if (user.role !== Role.ADMIN && user.role !== Role.MANAGER) {
-      throw new ForbiddenException('Vetëm admini dhe menaxheri mund të ndryshojë çmimin e seancës');
+    if (user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Vetëm admini mund të ndryshojë çmimin e seancës');
     }
+    return this._executePriceChange(id, dto.amount, dto.reason, user);
+  }
 
+  // ADMIN + MANAGER: mark a session as free (price → 0 €).
+  // Managers cannot set arbitrary prices — only this transition is allowed.
+  async markFree(id: string, dto: { reason?: string }, user: any) {
+    if (user.role !== Role.ADMIN && user.role !== Role.MANAGER) {
+      throw new ForbiddenException('Vetëm admini dhe menaxheri mund ta bëjë seancën pa pagesë');
+    }
+    return this._executePriceChange(id, 0, dto.reason, user);
+  }
+
+  // Shared: the actual price-change transaction. No role validation here —
+  // callers (updatePrice / markFree) are responsible for checking the role
+  // before reaching this point.
+  private async _executePriceChange(id: string, newPrice: number, reason: string | undefined, user: any) {
     // Access-control check (enforces branch scope for managers)
     await this.findOne(id, user);
 
@@ -566,7 +577,7 @@ export class SessionsService {
         include: {
           paymentAllocations: {
             select: { id: true, amount: true },
-            orderBy: { createdAt: 'desc' }, // newest first — release most recent allocs first
+            orderBy: { createdAt: 'desc' },
           },
         },
       });
@@ -574,9 +585,8 @@ export class SessionsService {
 
       oldAmountStr = existing.amount?.toString() ?? '0';
       const oldAmount = new Decimal(oldAmountStr);
-      const newAmount = new Decimal(dto.amount);
+      const newAmount = new Decimal(newPrice);
 
-      // Total currently allocated to this session across all payments
       const totalAllocated = existing.paymentAllocations.reduce(
         (sum, a) => sum.plus(new Decimal(a.amount.toString())),
         new Decimal(0),
@@ -595,7 +605,6 @@ export class SessionsService {
             releasedToCredit = releasedToCredit.plus(allocAmt);
             toRelease = toRelease.minus(allocAmt);
           } else {
-            // Partially reduce this allocation
             await tx.paymentAllocation.update({
               where: { id: alloc.id },
               data: { amount: allocAmt.minus(toRelease) },
@@ -613,16 +622,15 @@ export class SessionsService {
         }
       }
 
-      // isPaid: free sessions are always paid; otherwise check remaining amount
       const remainingAllocated = totalAllocated.minus(releasedToCredit);
       const isPaid = newAmount.isZero() || remainingAllocated.gte(newAmount.minus(new Decimal('0.005')));
 
       const session = await tx.session.update({
         where: { id },
         data: {
-          amount: dto.amount,
+          amount: newPrice,
           isPaid,
-          priceOverrideReason: dto.reason,
+          priceOverrideReason: reason,
           priceChangedByUserId: user.id,
         },
         include: {
@@ -633,8 +641,7 @@ export class SessionsService {
         },
       });
 
-      // Reflect the price change in the plan's effective total so financial
-      // summaries (totalTreatmentValue / debt) stay accurate.
+      // Keep the plan's effective total in sync (delta applied to totalAmount)
       if (existing.treatmentPlanId) {
         const delta = newAmount.minus(oldAmount);
         if (!delta.isZero()) {
@@ -660,8 +667,8 @@ export class SessionsService {
         entityId: id,
         oldData: { amount: oldAmountStr },
         newData: {
-          amount: String(dto.amount),
-          ...(dto.reason ? { reason: dto.reason } : {}),
+          amount: String(newPrice),
+          ...(reason ? { reason } : {}),
           ...(releasedToCredit.gt(0) ? { releasedCredit: releasedToCredit.toString() } : {}),
         },
       },

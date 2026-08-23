@@ -161,6 +161,7 @@ export const sessionsApi = {
   complete: (id: string, data: any) => api.patch(`/sessions/${id}/complete`, data),
   update: (id: string, data: any) => api.put(`/sessions/${id}`, data),
   updatePrice: (id: string, data: { amount: number; reason?: string }) => api.patch(`/sessions/${id}/price`, data),
+  markFree: (id: string, data?: { reason?: string }) => api.post(`/sessions/${id}/mark-free`, data ?? {}),
   delete: (id: string) => api.delete(`/sessions/${id}`),
   generateRecommendation: (data: { notes?: string; treatmentTypes?: string[] }) =>
     api.post('/sessions/generate-recommendation', data),

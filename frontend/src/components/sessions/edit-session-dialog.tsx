@@ -47,8 +47,7 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
   const queryClient = useQueryClient();
   const { data: authSession } = useSession();
   const patientId: string = session?.patientId || '';
-  const isManager = (authSession?.user as any)?.role === 'MANAGER';
-  const canEditPrice = isAdmin || isManager;
+  const canEditPrice = isAdmin; // Manager uses the dedicated mark-free action instead
 
   // Track amount before "Pa pagesë" toggle so we can restore it on untoggle
   const previousAmount = useRef<number | undefined>(

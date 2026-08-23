@@ -6,6 +6,7 @@ import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { CompleteSessionDto } from './dto/complete-session.dto';
 import { UpdateSessionPriceDto } from './dto/update-session-price.dto';
+import { MarkFreeSessionDto } from './dto/mark-free-session.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -76,10 +77,17 @@ export class SessionsController {
   }
 
   @Patch(':id/price')
-  @Roles(Role.ADMIN, Role.MANAGER)
-  @ApiOperation({ summary: 'Ndrysho çmimin e një seance specifike (ADMIN ose MANAGER)' })
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Ndrysho çmimin e një seance specifike (vetëm ADMIN)' })
   updatePrice(@Param('id') id: string, @Body() dto: UpdateSessionPriceDto, @CurrentUser() user: any) {
     return this.sessionsService.updatePrice(id, dto, user);
+  }
+
+  @Post(':id/mark-free')
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Bëje seancën pa pagesë / 0 € (ADMIN ose MANAGER)' })
+  markFree(@Param('id') id: string, @Body() dto: MarkFreeSessionDto, @CurrentUser() user: any) {
+    return this.sessionsService.markFree(id, dto, user);
   }
 
   @Delete(':id')

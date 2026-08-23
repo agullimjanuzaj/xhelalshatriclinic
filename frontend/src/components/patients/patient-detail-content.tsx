@@ -19,6 +19,7 @@ import { LoadingSkeleton } from '@/components/ui/loading-skeleton';
 import { CreatePlanDialog } from '@/components/treatment-plans/create-plan-dialog';
 import { CreateSessionDialog } from '@/components/sessions/create-session-dialog';
 import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
+import { MarkFreeConfirmDialog } from '@/components/sessions/mark-free-confirm-dialog';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
 import { PatientFormDialog } from '@/components/patients/patient-form-dialog';
 import { downloadInvoicePdf, printInvoice, shareInvoiceHtml } from '@/lib/invoice';
@@ -28,7 +29,7 @@ import {
 } from '@/lib/utils';
 import {
   ArrowLeft, Plus, Pencil, Trash2, Printer, Share2, Download,
-  Building2, Phone, CheckCircle2, ExternalLink,
+  Building2, Phone, CheckCircle2, ExternalLink, Ban,
 } from 'lucide-react';
 import { ROUTES } from '@/lib/routes';
 import { toast } from 'sonner';
@@ -76,6 +77,7 @@ export function PatientDetailContent({ id }: { id: string }) {
   const [showSessionDialog, setShowSessionDialog] = useState(false);
   const [editSession, setEditSession] = useState<any>(null);
   const [deleteSession, setDeleteSession] = useState<any>(null);
+  const [markFreeSession, setMarkFreeSession] = useState<any>(null);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentContext, setPaymentContext] = useState<{ planId?: string; sessionId?: string }>({});
   const [editPayment, setEditPayment] = useState<any>(null);
@@ -406,6 +408,11 @@ export function PatientDetailContent({ id }: { id: string }) {
                     </div>
                     <div className="flex items-center gap-1">
                       <SessionBadge status={s.status} />
+                      {(isAdmin || isManager) && Number(s.amount) > 0 && !s.isPaid && (
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700" onClick={() => setMarkFreeSession(s)} title="Bëje pa pagesë">
+                          <Ban size={13} />
+                        </Button>
+                      )}
                       {(isAdmin || (isPhysio && s.physiotherapist?.id === authSession?.user?.id)) && (
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setEditSession(s)} title="Ndrysho">
                           <Pencil size={13} />
@@ -502,9 +509,14 @@ export function PatientDetailContent({ id }: { id: string }) {
                   <p className="font-bold text-red-600">{formatCurrency(s.amount)}</p>
                 </div>
                 {canManageMoney && (
-                  <Button size="sm" className="gap-1.5 gradient-teal text-white border-0" onClick={() => { setPaymentContext({ sessionId: s.id }); setShowPaymentDialog(true); }}>
-                    <Plus size={13} />Regjistro pagesë
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="gap-1.5 gradient-teal text-white border-0" onClick={() => { setPaymentContext({ sessionId: s.id }); setShowPaymentDialog(true); }}>
+                      <Plus size={13} />Regjistro pagesë
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30" onClick={() => setMarkFreeSession(s)}>
+                      <Ban size={13} />Pa pagesë
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -595,6 +607,14 @@ export function PatientDetailContent({ id }: { id: string }) {
         onConfirm={() => deleteSession && deleteSessionMutation.mutate(deleteSession.id)}
         isPending={deleteSessionMutation.isPending}
       />
+      {markFreeSession && (
+        <MarkFreeConfirmDialog
+          open={!!markFreeSession}
+          session={markFreeSession}
+          patientId={id}
+          onClose={() => { setMarkFreeSession(null); invalidateAll(); }}
+        />
+      )}
 
       {(showPaymentDialog || editPayment) && (
         <PaymentFormDialog
