@@ -655,7 +655,7 @@ export class SessionsService {
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,
-        action: 'PRICE_OVERRIDE',
+        action: 'UPDATE',
         entity: 'session',
         entityId: id,
         oldData: { amount: oldAmountStr },
