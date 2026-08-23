@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,6 +28,7 @@ const schema = z.object({
   treatmentPlanId: z.string().optional(),
   treatmentTypes: z.array(z.string()).default([]),
   amount: z.coerce.number().min(0).optional(),
+  priceReason: z.string().optional(),
   notes: z.string().optional(),
   recommendations: z.string().optional(),
   status: z.enum(['SCHEDULED', 'COMPLETED', 'CANCELLED', 'NO_SHOW']).optional(),
@@ -46,6 +47,19 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
   const queryClient = useQueryClient();
   const { data: authSession } = useSession();
   const patientId: string = session?.patientId || '';
+  const isManager = (authSession?.user as any)?.role === 'MANAGER';
+  const canEditPrice = isAdmin || isManager;
+
+  // Track amount before "Pa pagesë" toggle so we can restore it on untoggle
+  const previousAmount = useRef<number | undefined>(
+    session?.amount != null ? Number(session.amount) : undefined,
+  );
+
+  // Total already allocated to this session (for credit-release warning)
+  const existingAllocations = useMemo(() => {
+    if (!session?.paymentAllocations) return 0;
+    return (session.paymentAllocations as any[]).reduce((s: number, a: any) => s + Number(a.amount), 0);
+  }, [session]);
 
   const { data: plansData, isLoading: plansLoading } = useQuery({
     queryKey: ['treatment-plans-for-session', patientId],
@@ -66,13 +80,19 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
     treatmentPlanId: session?.treatmentPlanId || NO_PLAN,
     treatmentTypes: session?.treatmentTypes || [],
     amount: session?.amount != null ? Number(session.amount) : undefined,
+    priceReason: '',
     notes: session?.notes || '',
     recommendations: session?.recommendations || '',
     status: session?.status || 'SCHEDULED',
   }), [session]);
 
   const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues });
-  useEffect(() => { if (open) form.reset(defaultValues); }, [open, defaultValues, form]);
+  useEffect(() => {
+    if (open) {
+      form.reset(defaultValues);
+      previousAmount.current = session?.amount != null ? Number(session.amount) : undefined;
+    }
+  }, [open, defaultValues, form, session]);
 
   const selectedPlanId = form.watch('treatmentPlanId');
   const selectedPlan = activePlans.find((p: any) => p.id === selectedPlanId);
@@ -97,15 +117,26 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
   };
 
   const mutation = useMutation({
-    mutationFn: (d: FormData) => {
+    mutationFn: async (d: FormData) => {
       const noPlan = !d.treatmentPlanId || d.treatmentPlanId === NO_PLAN;
+      const originalAmount = session?.amount != null ? Number(session.amount) : undefined;
+      const priceChanged = canEditPrice && d.amount !== undefined && d.amount !== originalAmount;
+
+      // Price changes (for admin/manager) go through the dedicated endpoint
+      // which handles allocation release and credit return atomically.
+      if (priceChanged) {
+        await sessionsApi.updatePrice(session.id, {
+          amount: d.amount!,
+          ...(d.priceReason ? { reason: d.priceReason } : {}),
+        });
+      }
+
+      // Regular update for all other fields (never send amount here)
       return sessionsApi.update(session.id, {
-        // Always send treatmentPlanId so the backend can disconnect it when null
         treatmentPlanId: noPlan ? null : d.treatmentPlanId,
         notes: d.notes || undefined,
         recommendations: d.recommendations || undefined,
         treatmentTypes: d.treatmentTypes,
-        amount: noPlan ? d.amount : undefined,
         ...(isAdmin ? { status: d.status } : {}),
       });
     },
@@ -170,29 +201,75 @@ export function EditSessionDialog({ open, onClose, session, isAdmin }: EditSessi
               </div>
             )}
 
-            {hasNoPlan && (
-              <>
-                <p className="text-xs text-muted-foreground">Seancë pa plan trajtimi — nuk do të ndikojë në numërimin e seancave të një trajtimi.</p>
-                <FormField control={form.control} name="amount" render={({ field }) => (
+            {hasNoPlan && !canEditPrice && (
+              <p className="text-xs text-muted-foreground">Seancë pa plan trajtimi — nuk do të ndikojë në numërimin e seancave të një trajtimi.</p>
+            )}
+
+            {/* Price override — visible to ADMIN and MANAGER for any session */}
+            {canEditPrice && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                <FormField control={form.control} name="amount" render={({ field }) => {
+                  const isFree = field.value === 0;
+                  const willReleaseCredit = isFree && existingAllocations > 0.005;
+                  return (
+                    <FormItem>
+                      <FormLabel>Çmimi i seancës (€)</FormLabel>
+                      <div className="flex items-center gap-2">
+                        <FormControl>
+                          <Input
+                            type="number" step="0.01" min="0"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => {
+                              const v = e.target.value === '' ? undefined : Number(e.target.value);
+                              if (v !== undefined && v > 0) previousAmount.current = v;
+                              field.onChange(e);
+                            }}
+                            className="flex-1"
+                          />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isFree ? 'default' : 'outline'}
+                          className={isFree ? 'gradient-teal text-white border-0' : ''}
+                          onClick={() => {
+                            if (isFree) {
+                              field.onChange(previousAmount.current ?? (session?.amount != null ? Number(session.amount) : 0));
+                            } else {
+                              previousAmount.current = field.value;
+                              field.onChange(0);
+                            }
+                          }}
+                        >
+                          Pa pagesë
+                        </Button>
+                      </div>
+                      {isFree && (
+                        <p className="text-xs text-muted-foreground">Kjo seancë nuk do të krijojë borxh.</p>
+                      )}
+                      {willReleaseCredit && (
+                        <p className="text-xs text-amber-600">
+                          {formatCurrency(existingAllocations)} të paguara më parë do të kthehen në kredit të pacientit.
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }} />
+                <FormField control={form.control} name="priceReason" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Çmimi i seancës (€)</FormLabel>
+                    <FormLabel className="text-xs text-muted-foreground">Arsyeja e ndryshimit (opsionale)</FormLabel>
                     <FormControl>
                       <Input
-                        type="number" step="0.01" min="0"
+                        placeholder="p.sh. Seancë falas, Zbritje, Kompensim..."
                         {...field}
-                        value={field.value ?? ''}
-                        disabled={!isAdmin}
+                        className="h-8 text-sm"
                       />
                     </FormControl>
-                    {!isAdmin && (
-                      <p className="text-xs text-muted-foreground">
-                        Çmimi i degës {selectedPatient?.branch?.name ? `(${selectedPatient.branch.name})` : ''}: {formatCurrency(field.value ?? 0)}
-                      </p>
-                    )}
-                    <FormMessage />
                   </FormItem>
                 )} />
-              </>
+              </div>
             )}
 
             <FormField control={form.control} name="treatmentTypes" render={() => (

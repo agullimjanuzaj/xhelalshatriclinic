@@ -76,8 +76,8 @@ export class SessionsController {
   }
 
   @Patch(':id/price')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Ndrysho çmimin e një seance specifike (vetëm ADMIN)' })
+  @Roles(Role.ADMIN, Role.MANAGER)
+  @ApiOperation({ summary: 'Ndrysho çmimin e një seance specifike (ADMIN ose MANAGER)' })
   updatePrice(@Param('id') id: string, @Body() dto: UpdateSessionPriceDto, @CurrentUser() user: any) {
     return this.sessionsService.updatePrice(id, dto, user);
   }

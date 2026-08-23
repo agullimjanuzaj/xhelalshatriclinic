@@ -544,62 +544,126 @@ export class SessionsService {
     return updated;
   }
 
-  // ADMIN-only: override the price of one specific session (e.g. a one-off
-  // discount) without touching the treatment plan's sessionFee, which still
-  // governs every other session of that plan.
+  // ADMIN/MANAGER: override the price of one specific session (e.g. a one-off
+  // discount or free session) without touching the treatment plan's sessionFee.
+  // When the new price is lower than what's already allocated, excess allocations
+  // are released and credited back to the patient's balance — all inside one
+  // transaction so there is never a partial state.
   async updatePrice(id: string, dto: UpdateSessionPriceDto, user: any) {
-    const existing = await this.findOne(id, user);
-    const oldAmount = existing.amount ? new Decimal(existing.amount.toString()) : new Decimal(0);
-    const newAmount = new Decimal(dto.amount);
-
-    // If this session is already linked to a payment, re-check whether that
-    // payment still covers the (possibly higher) new price.
-    let isPaid = existing.isPaid;
-    if (existing.paymentId) {
-      const payment = await this.prisma.payment.findFirst({ where: { id: existing.paymentId } });
-      if (payment) isPaid = new Decimal(payment.amount.toString()).gte(newAmount);
+    if (user.role !== Role.ADMIN && user.role !== Role.MANAGER) {
+      throw new ForbiddenException('Vetëm admini dhe menaxheri mund të ndryshojë çmimin e seancës');
     }
 
-    const updated = await this.prisma.session.update({
-      where: { id },
-      data: {
-        amount: dto.amount,
-        isPaid,
-        priceOverrideReason: dto.reason,
-        priceChangedByUserId: user.id,
-      },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        branch: { select: { id: true, name: true } },
-        physiotherapist: { select: { id: true, firstName: true, lastName: true } },
-        completedByUser: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
+    // Access-control check (enforces branch scope for managers)
+    await this.findOne(id, user);
 
-    // Reflect the price change in the plan's overall total so the financial
-    // summary (totalTreatmentValue / finalRemainingBalance) stays accurate.
-    if (existing.treatmentPlanId) {
-      const delta = newAmount.minus(oldAmount);
-      if (!delta.isZero()) {
-        const plan = await this.prisma.treatmentPlan.findUnique({ where: { id: existing.treatmentPlanId } });
-        if (plan) {
-          const newTotal = new Decimal(plan.totalAmount.toString()).plus(delta);
-          await this.prisma.treatmentPlan.update({
-            where: { id: existing.treatmentPlanId },
-            data: { totalAmount: newTotal.isNegative() ? 0 : newTotal },
+    let oldAmountStr = '0';
+    let releasedToCredit = new Decimal(0);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.session.findFirst({
+        where: { id, deletedAt: null },
+        include: {
+          paymentAllocations: {
+            select: { id: true, amount: true },
+            orderBy: { createdAt: 'desc' }, // newest first — release most recent allocs first
+          },
+        },
+      });
+      if (!existing) throw new NotFoundException('Seanca nuk u gjet');
+
+      oldAmountStr = existing.amount?.toString() ?? '0';
+      const oldAmount = new Decimal(oldAmountStr);
+      const newAmount = new Decimal(dto.amount);
+
+      // Total currently allocated to this session across all payments
+      const totalAllocated = existing.paymentAllocations.reduce(
+        (sum, a) => sum.plus(new Decimal(a.amount.toString())),
+        new Decimal(0),
+      );
+
+      // When price decreases: trim allocations, credit excess back to patient
+      if (totalAllocated.gt(newAmount)) {
+        let toRelease = totalAllocated.minus(newAmount);
+
+        for (const alloc of existing.paymentAllocations) {
+          if (toRelease.lte(0)) break;
+          const allocAmt = new Decimal(alloc.amount.toString());
+
+          if (allocAmt.lte(toRelease)) {
+            await tx.paymentAllocation.delete({ where: { id: alloc.id } });
+            releasedToCredit = releasedToCredit.plus(allocAmt);
+            toRelease = toRelease.minus(allocAmt);
+          } else {
+            // Partially reduce this allocation
+            await tx.paymentAllocation.update({
+              where: { id: alloc.id },
+              data: { amount: allocAmt.minus(toRelease) },
+            });
+            releasedToCredit = releasedToCredit.plus(toRelease);
+            toRelease = new Decimal(0);
+          }
+        }
+
+        if (releasedToCredit.gt(0)) {
+          await tx.patient.update({
+            where: { id: existing.patientId },
+            data: { balance: { increment: releasedToCredit } },
           });
         }
       }
-    }
+
+      // isPaid: free sessions are always paid; otherwise check remaining amount
+      const remainingAllocated = totalAllocated.minus(releasedToCredit);
+      const isPaid = newAmount.isZero() || remainingAllocated.gte(newAmount.minus(new Decimal('0.005')));
+
+      const session = await tx.session.update({
+        where: { id },
+        data: {
+          amount: dto.amount,
+          isPaid,
+          priceOverrideReason: dto.reason,
+          priceChangedByUserId: user.id,
+        },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true } },
+          branch: { select: { id: true, name: true } },
+          physiotherapist: { select: { id: true, firstName: true, lastName: true } },
+          completedByUser: { select: { id: true, firstName: true, lastName: true } },
+        },
+      });
+
+      // Reflect the price change in the plan's effective total so financial
+      // summaries (totalTreatmentValue / debt) stay accurate.
+      if (existing.treatmentPlanId) {
+        const delta = newAmount.minus(oldAmount);
+        if (!delta.isZero()) {
+          const plan = await tx.treatmentPlan.findUnique({ where: { id: existing.treatmentPlanId } });
+          if (plan) {
+            const newTotal = new Decimal(plan.totalAmount.toString()).plus(delta);
+            await tx.treatmentPlan.update({
+              where: { id: existing.treatmentPlanId },
+              data: { totalAmount: newTotal.isNegative() ? 0 : newTotal },
+            });
+          }
+        }
+      }
+
+      return session;
+    });
 
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,
-        action: 'UPDATE',
+        action: 'PRICE_OVERRIDE',
         entity: 'session',
         entityId: id,
-        oldData: { amount: oldAmount.toString() },
-        newData: { amount: newAmount.toString(), reason: dto.reason },
+        oldData: { amount: oldAmountStr },
+        newData: {
+          amount: String(dto.amount),
+          ...(dto.reason ? { reason: dto.reason } : {}),
+          ...(releasedToCredit.gt(0) ? { releasedCredit: releasedToCredit.toString() } : {}),
+        },
       },
     });
 
