@@ -13,12 +13,13 @@ import { PhysiotherapistCombobox } from '@/components/ui/physiotherapist-combobo
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { getPatientDetailPath, ROUTES } from '@/lib/routes';
-import { Search, Calendar, Plus, Pencil, Trash2, CheckCircle2, CreditCard } from 'lucide-react';
+import { Search, Calendar, Plus, Pencil, Trash2, CheckCircle2, CreditCard, Ban } from 'lucide-react';
 import { ClearableDateInput } from '@/components/ui/clearable-date-input';
 import { CreateSessionDialog } from '@/components/sessions/create-session-dialog';
 import { EditSessionDialog } from '@/components/sessions/edit-session-dialog';
 import { DocumentActions } from '@/components/shared/document-actions';
 import { PaymentFormDialog } from '@/components/payments/payment-form-dialog';
+import { MarkFreeConfirmDialog } from '@/components/sessions/mark-free-confirm-dialog';
 import { printSessionReport, shareSessionReport } from '@/lib/invoice';
 import { toast } from 'sonner';
 
@@ -36,6 +37,7 @@ export function AdminSessionsView() {
   const [editSession, setEditSession] = useState<any>(null);
   const [deleteSession, setDeleteSession] = useState<any>(null);
   const [paySession, setPaySession] = useState<any>(null);
+  const [markFreeSession, setMarkFreeSession] = useState<any>(null);
 
   const setDateParam = (key: 'dateFrom' | 'dateTo', value: string) => {
     setPage(1);
@@ -110,9 +112,12 @@ export function AdminSessionsView() {
         row.isPaid || row.treatmentPlan?.paymentStatus === 'PAID' || Number(row.amount) === 0 ? (
           <CheckCircle2 size={18} className="text-green-500" />
         ) : (
-          <div data-stop-row-click>
+          <div data-stop-row-click className="flex flex-col gap-1">
             <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => setPaySession(row)}>
               <CreditCard size={12} />Paguaj
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30" onClick={() => setMarkFreeSession(row)}>
+              <Ban size={12} />Pa pagesë
             </Button>
           </div>
         ),
@@ -257,6 +262,24 @@ export function AdminSessionsView() {
           defaultPatientId={paySession.patientId}
           defaultPlanId={paySession.treatmentPlanId || undefined}
           defaultSessionId={paySession.id}
+        />
+      )}
+
+      {markFreeSession && (
+        <MarkFreeConfirmDialog
+          open={!!markFreeSession}
+          session={markFreeSession}
+          onClose={() => {
+            setMarkFreeSession(null);
+            queryClient.invalidateQueries({ queryKey: ['sessions'] });
+            queryClient.invalidateQueries({ queryKey: ['treatment-plans'] });
+            queryClient.invalidateQueries({ queryKey: ['plan-financials'] });
+            queryClient.invalidateQueries({ queryKey: ['patients'] });
+            queryClient.invalidateQueries({ queryKey: ['payment-debts'] });
+            queryClient.invalidateQueries({ queryKey: ['outstanding-balances'] });
+            queryClient.invalidateQueries({ queryKey: ['report-overview'] });
+            queryClient.invalidateQueries({ queryKey: ['payments'] });
+          }}
         />
       )}
 
